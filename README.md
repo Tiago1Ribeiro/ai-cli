@@ -1,94 +1,98 @@
-# 🤖 AI CLI
+# AI CLI
 
-Assistente de IA versátil no terminal com modelos LLM, execução de comandos e renderização markdown.
+A versatile terminal AI assistant powered by LLMs, featuring command execution, rich markdown rendering, and context memory.
 
-## ✨ Features
+## Features
 
-- 🗣️ **Conversas com memória** - `ai -c` continua última conversa
-- 📋 **Cópia automática** - Respostas copiadas para clipboard
-- 🔧 **Ferramentas integradas** - O modelo pode executar comandos (ls, cat, tree, find, git)
-- 🎨 **Renderização rica** - Markdown com cores, emojis e syntax highlighting
-- ⚡ **Streaming** - Respostas em tempo real
-- 🔄 **Modelos dinâmicos** - Adiciona e troca modelos facilmente
+- **Conversational Memory**: proper context retention with `-c` flag.
+- **Auto-Copy**: Responses are automatically copied to the clipboard.
+- **Integrated Tools**: The model can execute system commands (ls, cat, tree, find, git).
+- **Rich Rendering**: Beautiful Markdown output with syntax highlighting and panels.
+- **Live Streaming**: Real-time response generation.
+- **Dynamic Models**: Easily add, switch, and manage different LLM backends.
 
-## 📦 Instalação
+## Installation
 
 ```bash
-# Desenvolvimento local
+# Local development
 pip install -e .
 
-# Requer llm CLI instalado
+# Requires llm CLI installed
 pip install llm
 ```
 
-## 🚀 Uso
+## Usage
 
-### Básico
+### Basic Interaction
+
 ```bash
-ai olá como estás              # Pergunta simples
-ai -m fast que horas são       # Usar modelo específico
-ai -c explica melhor           # Continuar conversa anterior
+ai "hello, how are you?"        # Simple query
+ai -m fast "what time is it?"   # Use specific model
+ai -c "explain more"            # Continue previous conversation
 ```
 
-### Ficheiros
+### File Analysis
+
 ```bash
-ai file README.md resume isto  # Analisar ficheiro
-ai explain main.py             # Explicar código
-cat log.txt | ai "que erro é?" # Via pipe
+ai file README.md "summarize this"   # Analyze file
+ai explain main.py                   # Explain code
+cat log.txt | ai "what is this error?" # Pipe input
 ```
 
-### Ferramentas
+### Exploration Tools
+
 ```bash
-ai tree                        # Estrutura de pastas
-ai find "def main"             # Pesquisa com ripgrep
-ai fzf                         # Fuzzy finder interativo
+ai tree                        # Project structure
+ai find "def main"             # Search with ripgrep
+ai fzf                         # Interactive fuzzy finder
 ```
 
-### Gestão de Modelos
+### Model Management
+
 ```bash
-ai model                       # Menu interativo
-ai model list                  # Listar todos
-ai model set fast              # Definir default
-ai model add meu gpt-4 "Desc"  # Adicionar custom
-ai model current               # Ver atual
+ai model                       # Interactive menu
+ai model list                  # List all models
+ai model set fast              # Set default model
+ai model add mygpt gpt-4 "Desc"# Add custom model
+ai model current               # Show current model
 ```
 
-## 🤖 Modelos Built-in
+## Built-in Models
 
-| Alias | Modelo | Descrição |
-|-------|--------|-----------|
-| `maverick` | Llama 4 Maverick 17B | Uso geral (padrão) |
-| `fast` | Llama 3.3 70B | Rápido + qualidade |
-| `quick` | Llama 3.1 8B | Ultra-rápido |
-| `qwen` | Qwen3 32B | Código Python/JS |
+| Alias | Model | Description |
+|-------|-------|-------------|
+| `maverick` | Llama 4 Maverick 17B | General purpose (default) |
+| `fast` | Llama 3.3 70B | Fast + High Quality |
+| `quick` | Llama 3.1 8B | Ultra-fast |
+| `qwen` | Qwen3 32B | Python/JS Coding |
 | `web` | Compound | Web search + tools |
 
-## 🔧 Opções Principais
+## Main Options
 
 ```
--m, --model ALIAS    Modelo a usar
--c, --continue       Continuar conversa anterior
--v, --verbose        Modo verbose
--V, --version        Versão
--h, --help           Ajuda
+-m, --model ALIAS    Model to use
+-c, --continue       Continue previous conversation
+-v, --verbose        Verbose mode
+-V, --version        Show version
+-h, --help           Show help
 ```
 
-## 📋 Auto-Copy
+## Auto-Copy
 
-Todas as respostas são **automaticamente copiadas** para o clipboard.
-Após cada resposta verás: `📋 Copiado`
+Every response is automatically copied to your clipboard for quick usage.
+A confirmation indicator (💾 Copied) appears at the bottom of the response panel.
 
-## 🔌 Dependências Opcionais
+## Optional Dependencies
 
-- **ripgrep (rg)** - Para `ai find` (fallback para findstr)
-- **fzf** - Para `ai fzf`
+- **ripgrep (rg)**: For `ai find` (falls back to findstr on Windows).
+- **fzf**: For `ai fzf`.
 
-## 📁 Configuração
+## Configuration
 
-Configuração guardada em:
+Configuration is stored at:
 - **Windows**: `%APPDATA%\ai-cli\config.json`
 - **Linux/Mac**: `~/.config/ai-cli/config.json`
 
-## 📜 Licença
+## License
 
 MIT
