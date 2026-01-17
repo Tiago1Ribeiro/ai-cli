@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-cli"
+version = "0.1.0"
+description = "CLI tool para interagir com modelos LLM com renderização markdown"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "MediaWeb Global"}
+]
+requires-python = ">=3.9"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+keywords = ["cli", "llm", "ai", "terminal", "markdown"]
+
+dependencies = [
+    "click>=8.0.0",
+    "rich>=13.0.0",
+    "llm>=0.19.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+
+[project.scripts]
+ai = "ai_cli.main:cli"
+
+[project.urls]
+"Homepage" = "https://github.com/mediaweb-global/cli-ai"
+"Bug Tracker" = "https://github.com/mediaweb-global/cli-ai/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
