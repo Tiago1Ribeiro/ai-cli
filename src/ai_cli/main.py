@@ -125,7 +125,6 @@ class AliasedGroup(click.Group):
     ALIASES = {
         "f": "file",
         "e": "explain",
-        "m": "models",
         "t": "tree",
         "s": "find",  # search
     }
@@ -145,6 +144,8 @@ class AliasedGroup(click.Group):
     context_settings={
         "help_option_names": ["-h", "--help"],
         "max_content_width": 100,
+        "allow_extra_args": True,
+        "allow_interspersed_args": False,
     }
 )
 @click.argument("prompt", nargs=-1, required=False)
@@ -152,6 +153,9 @@ class AliasedGroup(click.Group):
 @click.option("-V", "--version", is_flag=True, help="Mostra versão")
 @click.option("-c", "--continue", "continue_chat", is_flag=True, help="Continua conversa anterior")
 @click.option("--no-stream", is_flag=True, help="Desativa streaming (output completo)")
+@click.option("--config", "show_config", is_flag=True, help="Mostra configuração atual")
+@click.option("--models", "show_models", is_flag=True, help="Lista modelos disponíveis")
+@click.option("--check", "run_check", is_flag=True, help="Verifica estado do sistema")
 @verbose_option
 @click.pass_context
 def cli(
@@ -161,19 +165,23 @@ def cli(
     version: bool,
     continue_chat: bool,
     no_stream: bool,
+    show_config: bool,
+    show_models: bool,
+    run_check: bool,
     verbose: bool,
 ) -> None:
     """AI CLI - Assistente de IA no terminal.
     
     \b
     Uso Básico:
-      ai olá como estás
+      ai como funciona python
       ai -m fast qual a capital de Portugal
     
     \b
-    Conversas:
-      ai -c "continua"        # Continua última conversa
-      ai -c "mais detalhes"   # O modelo lembra contexto
+    Comandos Auxiliares:
+      ai --config          # Mostra configuração
+      ai --models          # Lista modelos
+      ai --check           # Verifica sistema
     
     \b
     Com Ficheiros:
@@ -182,8 +190,8 @@ def cli(
     
     \b
     Com Pipe:
-      cat error.log | ai "explica este erro"
-      git diff | ai "resume estas alterações"
+      cat error.log | ai explica este erro
+      git diff | ai resume estas alterações
     
     \b
     Exploração:
@@ -192,11 +200,10 @@ def cli(
     
     \b
     Aliases:
-      ai f  → ai file
-      ai e  → ai explain
-      ai m  → ai models
-      ai t  → ai tree
-      ai s  → ai find (search)
+      ai f = ai file
+      ai e = ai explain
+      ai t = ai tree
+      ai s = ai find (search)
     """
     # Guardar opções no contexto para subcomandos
     ctx.ensure_object(dict)
@@ -207,6 +214,19 @@ def cli(
     
     if version:
         _show_version(verbose)
+        return
+    
+    # Comandos auxiliares (flags)
+    if show_config:
+        _show_config()
+        return
+    
+    if show_models:
+        _list_models_table()
+        return
+    
+    if run_check:
+        _run_health_check()
         return
     
     # Se há subcomando, deixa executar
@@ -267,8 +287,65 @@ def _show_version(verbose: bool = False) -> None:
             console.print(f"[dim]Tools error: {TOOLS_ERROR}[/dim]")
 
 
+def _show_config() -> None:
+    """Mostra configuração atual."""
+    render_info("Configuração atual:")
+    console.print(f"  Modelo padrão: [cyan]{DEFAULT_MODEL}[/cyan]")
+    console.print(f"  Tools disponíveis: [cyan]{TOOLS_AVAILABLE}[/cyan]")
+
+
+def _list_models_table() -> None:
+    """Lista modelos disponíveis em formato tabela."""
+    model_list = list_models()
+    headers = ["Alias", "Descrição", "Tokens/seg", "Default"]
+    rows = [
+        [
+            m.alias,
+            m.description,
+            str(m.tokens_per_sec) if m.tokens_per_sec else "-",
+            "✓" if m.alias == DEFAULT_MODEL else "",
+        ]
+        for m in model_list
+    ]
+    render_table(headers, rows, title="Modelos Disponíveis")
+
+
+def _run_health_check() -> None:
+    """Verifica estado do sistema."""
+    console.print("[bold]Verificação do Sistema[/bold]\n")
+    
+    # Verificar API
+    try:
+        render_success("API configurada")
+    except Exception as e:
+        render_error("API não configurada", str(e))
+    
+    # Verificar tools
+    if TOOLS_AVAILABLE:
+        render_success("Tools disponíveis (tree, find, fzf)")
+    else:
+        render_warning(f"Tools indisponíveis: {TOOLS_ERROR}")
+    
+    # Verificar modelos
+    try:
+        models_count = len(list_models())
+        render_success(f"{models_count} modelos disponíveis")
+    except Exception as e:
+        render_error("Não foi possível listar modelos", str(e))
+
+
+def _save_output(output_path: str, content: str) -> None:
+    """Guarda output num ficheiro."""
+    try:
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        render_success(f"Guardado em: {output_path}")
+    except Exception as e:
+        render_error("Erro ao guardar ficheiro", str(e))
+
+
 # =============================================================================
-# COMANDOS
+# COMANDOS PRINCIPAIS
 # =============================================================================
 
 @cli.command()
@@ -370,90 +447,9 @@ def explain(
         ctx.exit(EXIT_ERROR)
 
 
-@cli.command()
-@click.option("--json", "as_json", is_flag=True, help="Output em JSON")
-def models(as_json: bool) -> None:
-    """Lista modelos disponíveis.
-    
-    \b
-    Exemplos:
-      ai models
-      ai models --json
-    """
-    model_list = list_models()
-    
-    if as_json:
-        import json
-        data = [
-            {
-                "alias": m.alias,
-                "description": m.description,
-                "tokens_per_sec": m.tokens_per_sec,
-            }
-            for m in model_list
-        ]
-        console.print_json(json.dumps(data))
-    else:
-        headers = ["Alias", "Descrição", "Tokens/seg", "Default"]
-        rows = [
-            [
-                m.alias,
-                m.description,
-                str(m.tokens_per_sec) if m.tokens_per_sec else "-",
-                "✓" if m.alias == DEFAULT_MODEL else "",
-            ]
-            for m in model_list
-        ]
-        
-        render_table(headers, rows, title="Modelos Disponíveis")
-
-
-@cli.command()
-def config() -> None:
-    """Mostra/edita configuração.
-    
-    \b
-    Exemplos:
-      ai config              # Mostra configuração atual
-      ai config --edit       # Abre editor
-    """
-    # TODO: Implementar gestão de config
-    render_info("Configuração atual:")
-    console.print(f"  Modelo padrão: [cyan]{DEFAULT_MODEL}[/cyan]")
-    console.print(f"  Tools disponíveis: [cyan]{TOOLS_AVAILABLE}[/cyan]")
-
-
-@cli.command(name="check")
-def health_check() -> None:
-    """Verifica estado do sistema."""
-    console.print("[bold]Verificação do Sistema[/bold]\n")
-    
-    # Verificar API
-    try:
-        # Assumindo que há uma função de health check
-        render_success("API configurada")
-    except Exception as e:
-        render_error("API não configurada", str(e))
-    
-    # Verificar tools
-    if TOOLS_AVAILABLE:
-        render_success("Tools disponíveis (tree, find, fzf)")
-    else:
-        render_warning(f"Tools indisponíveis: {TOOLS_ERROR}")
-    
-    # Verificar modelos
-    try:
-        models_count = len(list_models())
-        render_success(f"{models_count} modelos disponíveis")
-    except Exception as e:
-        render_error("Não foi possível listar modelos", str(e))
-
-
 # =============================================================================
-# UTILITÁRIOS
+# COMANDOS DE TOOLS
 # =============================================================================
-
-def _save_output(filepath: str, content: str) -> None:
     """Guarda output num ficheiro."""
     try:
         with open(filepath, "w", encoding="utf-8") as f:
