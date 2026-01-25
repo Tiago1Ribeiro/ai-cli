@@ -1,141 +1,143 @@
 # AI CLI
 
-A versatile terminal AI assistant powered by LLMs, featuring command execution, rich markdown rendering, and context memory.
+Assistente de IA versátil para terminal, alimentado por LLMs, com execução de comandos, renderização rica de markdown e memória de contexto.
 
-## Features
+![alt text](image.png)
 
-- **Conversational Memory**: Proper context retention with `-c` flag
-- **Auto-Copy**: Responses automatically copied to clipboard
-- **Integrated Tools**: Execute system commands (ls, cat, tree, find, git)
-- **Rich Rendering**: Beautiful minimal TUI with syntax highlighting
-- **Live Streaming**: Real-time response with spinner animation
-- **Dynamic Models**: Easily add, switch, and manage different LLM backends
+## Características
 
-## Requirements
+- **Memória de Conversação**: Retenção adequada de contexto com flag `-c`
+- **Cópia Automática**: Respostas automaticamente copiadas para clipboard
+- **Ferramentas Integradas**: Executa comandos do sistema (ls, cat, tree, find, git)
+- **Renderização Rica**: TUI minimalista e bonita com syntax highlighting
+- **Streaming em Direto**: Resposta em tempo real com animação
+- **Modelos Dinâmicos**: Adiciona, alterna e gere facilmente diferentes backends LLM
+
+## Requisitos
 
 - **Python 3.9+**
-- **llm CLI** (Simon Willison's LLM tool)
+- **llm CLI** (ferramenta LLM de Simon Willison)
 
-## Installation
+## Instalação
 
-### 1. Install LLM CLI
+### 1. Instalar LLM CLI
 
-The AI CLI depends on Simon Willison's excellent `llm` tool:
+O AI CLI depende da excelente ferramenta `llm` de Simon Willison:
 
 ```bash
 pip install llm
 ```
 
-### 2. Configure Your LLM Provider
+### 2. Configurar o Fornecedor de LLM
 
-You need at least one LLM provider configured. **Free local options are recommended for getting started.**
+Precisas de pelo menos um fornecedor de LLM configurado. **Opções locais gratuitas são recomendadas para começar.**
 
-#### Option A: Ollama (FREE - Recommended)
+#### Opção A: Ollama (GRÁTIS - Recomendado)
 
-Run powerful models locally on your computer at no cost:
+Executa modelos poderosos localmente no teu computador sem custos:
 
 ```bash
-# 1. Install Ollama from https://ollama.ai
-# 2. Pull a model (examples below)
+# 1. Instalar Ollama de https://ollama.ai
+# 2. Fazer pull de um modelo (exemplos abaixo)
 
-# Recommended models:
-ollama pull llama3.2          # 3B - Fast, good for quick tasks
-ollama pull qwen2.5-coder     # 7B - Excellent for coding
-ollama pull mistral           # 7B - Great general purpose
-ollama pull deepseek-r1:8b    # 8B - Strong reasoning
+# Modelos recomendados:
+ollama pull llama3.2          # 3B - Rápido, bom para tarefas rápidas
+ollama pull qwen2.5-coder     # 7B - Excelente para código
+ollama pull mistral           # 7B - Ótimo para uso geral
+ollama pull deepseek-r1:8b    # 8B - Raciocínio forte
 
-# 3. Install llm-ollama plugin
+# 3. Instalar plugin llm-ollama
 llm install llm-ollama
 
-# 4. Test it
-llm -m llama3.2 "Hello"
+# 4. Testar
+llm -m llama3.2 "Olá"
 ```
 
-**Advantages**: Free, private, works offline, no API keys needed.
+**Vantagens**: Grátis, privado, funciona offline, não precisa de API keys.
 
-#### Option B: OpenAI (Paid)
+#### Opção B: OpenAI (Pago)
 
 ```bash
 llm keys set openai
-# Paste your OpenAI API key
+# Cola a tua OpenAI API key
 
-# Test it
-llm -m gpt-4o-mini "Hello"
+# Testar
+llm -m gpt-4o-mini "Olá"
 ```
 
-**Cost**: ~$0.15-$15 per 1M tokens depending on model.
+**Custo**: ~$0.15-$15 por 1M tokens dependendo do modelo.
 
-#### Option C: Anthropic Claude (Paid)
+#### Opção C: Anthropic Claude (Pago)
 
 ```bash
 llm install llm-claude-3
 llm keys set claude
-# Paste your Anthropic API key
+# Cola a tua Anthropic API key
 
-# Test it
-llm -m claude-3-5-sonnet-latest "Hello"
+# Testar
+llm -m claude-3-5-sonnet-latest "Olá"
 ```
 
-**Cost**: ~$3-$15 per 1M tokens depending on model.
+**Custo**: ~$3-$15 por 1M tokens dependendo do modelo.
 
-#### Option D: Other Free Options
+#### Opção D: Outras Opções Grátis
 
 ```bash
-# Google Gemini (Free tier available)
+# Google Gemini (Tier gratuito disponível)
 llm install llm-gemini
 llm keys set gemini
 
-# Groq (Free tier with fast inference)
+# Groq (Tier gratuito com inferência rápida)
 llm install llm-groq
 llm keys set groq
 ```
 
-See [llm documentation](https://llm.datasette.io/) for more providers.
+Vê a [documentação llm](https://llm.datasette.io/) para mais fornecedores.
 
-### 3. Install AI CLI
+### 3. Instalar AI CLI
 
 ```bash
-# Clone the repository
+# Clonar o repositório
 git clone https://github.com/mediaweb-global/cli-ai.git
 cd cli-ai
 
-# Install in development mode
+# Instalar em modo de desenvolvimento
 pip install -e .
 
-# Verify installation
+# Verificar instalação
 ai --version
 ```
 
-## Configuration
+## Configuração
 
-### First Run Setup
+### Configuração Inicial
 
-On first run, AI CLI creates a configuration file:
+Na primeira execução, AI CLI cria um ficheiro de configuração:
 
 - **Windows**: `%APPDATA%\ai-cli\config.json`
 - **Linux/macOS**: `~/.config/ai-cli/config.json`
 
-### Configure Models
+### Configurar Modelos
 
-AI CLI comes with preconfigured model aliases. Add your models:
+AI CLI vem com aliases de modelos pré-configurados. Adiciona os teus modelos:
 
 ```bash
-# Interactive model management
+# Gestão interativa de modelos
 ai model
 
-# Add a custom model
-ai model add mymodel gpt-4o "My GPT-4o model"
+# Adicionar um modelo personalizado
+ai model add mymodel gpt-4o "O meu modelo GPT-4o"
 
-# Set default model
+# Definir modelo padrão
 ai model set mymodel
 
-# List all configured models
+# Listar todos os modelos configurados
 ai model list
 ```
 
-### Model Configuration File
+### Ficheiro de Configuração de Modelos
 
-Edit `config.json` to customize models:
+Edita `config.json` para personalizar modelos:
 
 ```json
 {
@@ -165,41 +167,41 @@ Edit `config.json` to customize models:
 }
 ```
 
-**Built-in Models:**
-- `maverick` - Llama 4 Maverick 17B - Uso geral (default)
+**Modelos Incluídos:**
+- `maverick` - Llama 4 Maverick 17B - Uso geral (padrão)
 - `fast` - Llama 3.3 70B - Rápido + qualidade (280 tokens/s)
 - `quick` - Llama 3.1 8B - Ultra-rápido (560 tokens/s)
 - `qwen` - Qwen3 32B - Código Python/JS (400 tokens/s)
 - `web` - Compound - Web search + tools (450 tokens/s)
 
-## Usage
+## Uso
 
-### Basic Queries (No quotes needed!)
-
-```bash
-# Simple question - NO QUOTES NEEDED
-ai what is the capital of France
-
-# Multi-word queries - NO QUOTES NEEDED  
-ai explain quantum computing in simple terms
-
-# Use specific model
-ai -m code write a quicksort function
-```
-
-### System Commands (with --)
+### Queries Básicas (Sem aspas!)
 
 ```bash
-ai --help              # Show help
-ai --version           # Show version
-ai --config            # Show configuration
-ai --models            # List available models
-ai --check             # Check system status
+# Pergunta simples - SEM ASPAS
+ai qual é a capital de França
+
+# Queries multi-palavra - SEM ASPAS
+ai explica computação quântica em termos simples
+
+# Usar modelo específico
+ai -m code escreve uma função quicksort
 ```
 
-### Aliases (Shortcuts)
+### Comandos do Sistema (com --)
 
-Save typing with built-in aliases:
+```bash
+ai --help              # Mostrar ajuda
+ai --version           # Mostrar versão
+ai --config            # Mostrar configuração
+ai --models            # Listar modelos disponíveis
+ai --check             # Verificar estado do sistema
+```
+
+### Aliases (Atalhos)
+
+Poupa tempo com aliases integrados:
 
 ```bash
 ai f README.md summarize   # Same as: ai file
