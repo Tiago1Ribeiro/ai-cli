@@ -32,7 +32,11 @@ from .render import (
 logger = logging.getLogger(__name__)
 
 # Encoding do sistema
-SYSTEM_ENCODING = locale.getpreferredencoding(False) or "utf-8"
+# Forçar UTF-8 no Windows para evitar problemas com caracteres Unicode
+if sys.platform == "win32":
+    SYSTEM_ENCODING = "utf-8"
+else:
+    SYSTEM_ENCODING = locale.getpreferredencoding(False) or "utf-8"
 
 # Timeouts
 COMMAND_TIMEOUT = 30  # segundos para comandos
@@ -616,6 +620,12 @@ def _query_with_spinner(cmd: list[str], timeout: Optional[float]) -> Optional[st
     """
     buffer = []
     
+    # Preparar environment com UTF-8 forçado no Windows
+    env = os.environ.copy()
+    if sys.platform == "win32":
+        env["PYTHONIOENCODING"] = "utf-8"
+        env["PYTHONUTF8"] = "1"
+    
     process = subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
@@ -624,6 +634,7 @@ def _query_with_spinner(cmd: list[str], timeout: Optional[float]) -> Optional[st
         encoding=SYSTEM_ENCODING,
         errors="replace",
         bufsize=1,  # Line buffered
+        env=env,
     )
     
     try:
