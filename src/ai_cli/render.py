@@ -1,8 +1,9 @@
-"""Renderização de markdown no terminal com Rich - Versão Melhorada."""
+"""Renderização de markdown no terminal com Rich - Versão TUI Melhorada."""
 
 import os
 import sys
-import re  # 💡 Added re import
+import shutil
+import re
 import textwrap
 from typing import Optional
 
@@ -75,17 +76,19 @@ class Icons:
     
     @property
     def clipboard(self) -> str:
-        return "\U0001F5AB" if self.unicode else "[SAVE]"  # U+1F5AB as requested
+        return "🖫" if self.unicode else "[SAVE]"
+    
+    @property
+    def lambda_icon(self) -> str:
+        return "λ" if self.unicode else ">"
+    
+    @property
+    def therefore(self) -> str:
+        return "∴" if self.unicode else "=>"
 
 
 # Instância global de ícones
 icons = Icons(_supports_unicode())
-
-
-
-# =============================================================================
-# CLIPBOARD
-# =============================================================================
 
 
 # =============================================================================
@@ -144,49 +147,56 @@ def copy_to_clipboard(text: str) -> bool:
 
 
 # =============================================================================
-# TEMA MELHORADO
+# TEMA MELHORADO PARA TUI
 # =============================================================================
 
 custom_theme = Theme({
     # Cabeçalhos com hierarquia visual clara
-    "markdown.h1": "bold bright_white on blue",
-    "markdown.h2": "bold bright_yellow",
-    "markdown.h3": "bold bright_cyan",
+    "markdown.h1": "bold bright_white",
+    "markdown.h2": "bold bright_cyan",
+    "markdown.h3": "bold cyan",
     "markdown.h4": "bold white",
-    "markdown.h5": "dim white",
+    "markdown.h5": "white",
+    "markdown.h6": "dim white",
     
     # Código
-    "markdown.code": "bold bright_white on grey7",
+    "markdown.code": "bold cyan on grey11",
     "markdown.code_block": "white on grey7",
     
     # Links
-    "markdown.link": "bright_cyan underline",
-    "markdown.link_url": "dim cyan",
+    "markdown.link": "bright_blue underline",
+    "markdown.link_url": "dim blue",
     
     # Listas e blockquotes
-    "markdown.item.bullet": "bold yellow",
-    "markdown.block_quote": "dim white",
+    "markdown.item.bullet": "bright_yellow",
+    "markdown.item.number": "bright_yellow",
+    "markdown.block_quote": "italic dim cyan",
     
     # Formatação de texto
-    "markdown.bold": "bold bright_white",
-    "markdown.italic": "italic",
-    "markdown.bold_italic": "bold magenta",  # HACK: Usado para destacar user
+    "markdown.bold": "bold white",
+    "markdown.italic": "italic bright_white",
+    "markdown.bold_italic": "bold italic bright_white",
     "markdown.strikethrough": "strike dim",
     
     # Horizontal rule
-    "markdown.hr": "dim bright_black",
+    "markdown.hr": "bright_black",
     
     # Mensagens do sistema
     "success": "bold green",
     "error": "bold red",
     "warning": "bold yellow",
-    "info": "bold blue",
-    "dim": "dim white",
+    "info": "bold bright_blue",
+    "dim": "dim",
     
     # Highlighting personalizado
     "path.path": "underline cyan",
     "path.user": "bold magenta",
+    
+    # Linhas decorativas
+    "divider": "bright_blue",
+    "divider.text": "bold bright_white",
 })
+
 
 # =============================================================================
 # HIGHLIGHTER
@@ -212,48 +222,100 @@ class PathHighlighter(RegexHighlighter):
 # Console global com highlighter
 console = Console(
     theme=custom_theme,
-    highlight=False,  # Hightlight manual apenas onde necessário
+    highlight=False,  # Highlight manual apenas onde necessário
 )
 
 
 # =============================================================================
-# FUNÇÕES DE RENDERIZAÇÃO
+# LINHAS DECORATIVAS
 # =============================================================================
 
-def render_error(title: str, message: Optional[str] = None) -> None:
-    """Renderiza mensagem de erro."""
-    text = f"[bold red]{icons.error} {title}[/bold red]"
-    if message:
-        text += f"\n[white]{message}[/white]"
-    console.print(Panel(text, border_style="red"))
-
-
-def render_warning(message: str) -> None:
-    """Renderiza aviso."""
-    console.print(f"[bold yellow]{icons.warning} {message}[/bold yellow]")
-
-
-def render_info(message: str) -> None:
-    """Renderiza informação."""
-    console.print(f"[bold blue]{icons.info} {message}[/bold blue]")
-
-
-def render_success(message: str) -> None:
-    """Renderiza sucesso."""
-    console.print(f"[bold green]{icons.success} {message}[/bold green]")
-
-
-def render_table(title: str, columns: list[str], rows: list[list[str]]) -> None:
-    """Renderiza uma tabela."""
-    table = Table(title=title, show_header=True, header_style="bold magenta")
+def _make_divider(text: str = "", style: str = "divider") -> Text:
+    """
+    Cria uma linha decorativa curta estilo: ─── Texto ───
     
-    for col in columns:
-        table.add_column(col)
+    Args:
+        text: Texto a exibir (opcional)
+        style: Estilo da linha
     
-    for row in rows:
-        table.add_row(*row)
+    Returns:
+        Text formatado
+    """
+    if icons.unicode:
+        line_char = "─"
+    else:
+        line_char = "-"
+    
+    if text:
+        # Com texto: ────── Text ──────
+        # Minimalist: linhas do tamanho da linha vazia (12 chars)
+        left_line = line_char * 12
+        right_line = line_char * 12
+        divider = Text()
+        divider.append(left_line, style=style)
+        divider.append(" ", style=style)
+        divider.append(Text.from_markup(text, style="divider.text"))
+        divider.append(" ", style=style)
+        divider.append(right_line, style=style)
+    else:
+        # Sem texto: apenas linha curta (12 chars)
+        divider = Text(line_char * 12, style=style)
+    
+    return divider
+
+
+def render_divider(text: str = "", style: str = "divider") -> None:
+    """Renderiza uma linha decorativa curta com indentação."""
+    divider = _make_divider(text, style)
+    # Adicionar padding (0 top/bottom, 2 left/right) para alinhar com o texto
+    console.print(Padding(divider, (0, 2)))
+
+
+# =============================================================================
+# FUNÇÕES DE RENDERIZAÇÃO PRINCIPAIS
+# =============================================================================
+
+def render_header(duration: float) -> None:
+    """Renderiza o cabeçalho com duração e linha decorativa."""
+    # Calcular quantos chars cabem
+    prefix = f"{icons.lambda_icon} ai-cli • {duration:.1f}s "
+    max_line_width = 80
+    line_length = max(0, max_line_width - len(prefix))
+    
+    grid = Table.grid(expand=False)
+    grid.add_column()
+    grid.add_column()
+    grid.add_row(
+        Text(prefix, style="bright_blue"),
+        Text("─" * line_length if icons.unicode else "-" * line_length, style="bright_blue")
+    )
+    console.print(grid)
+
+
+def render_footer(copied: bool = False) -> None:
+    """Renderiza o rodapé com feedback de clipboard."""
+    max_line_width = 80
+    
+    if copied:
+        prefix = f"{icons.therefore} copiado para clipboard "
+        line_length = max(0, max_line_width - len(prefix))
         
-    console.print(table)
+        grid = Table.grid(expand=False)
+        grid.add_column()
+        grid.add_column()
+        grid.add_row(
+            Text(prefix, style="bright_blue"),
+            Text("─" * line_length if icons.unicode else "-" * line_length, style="bright_blue")
+        )
+    else:
+        # Minimalist closing line
+        grid = Table.grid(expand=False)
+        grid.add_column()
+        grid.add_row(
+            Text("─" * max_line_width if icons.unicode else "-" * max_line_width, style="bright_blue")
+        )
+        
+    console.print(grid)
 
 
 def render_markdown(
@@ -261,25 +323,15 @@ def render_markdown(
     code_theme: str = "monokai",
     justify: str = "left",
     width: Optional[int] = None,
+    title: Optional[str] = None,
     subtitle: Optional[str] = None,
+    duration: float = 0.0,
+    copied: bool = False,
 ) -> None:
-    """
-    Renderiza texto markdown no terminal.
+    """Renderiza texto markdown no terminal com linhas decorativas."""
     
-    Args:
-        text: Texto em formato markdown
-        code_theme: Tema para blocos de código
-        justify: Alinhamento (left, center, right, full)
-        width: Largura máxima (None = usar console width)
-        subtitle: Subtítulo do painel (ex: status)
-    """
-    from rich.box import ROUNDED
-    
-    # Pré-processar texto (limpar code fences, dedent)
     clean_text = _preprocess_markdown(text)
     
-    # Criar objeto Markdown
-    # NOTA: Não injetamos estilos aqui para evitar artifacts
     md = Markdown(
         clean_text,
         code_theme=code_theme,
@@ -288,41 +340,82 @@ def render_markdown(
         justify=justify,
     )
     
-    # Determinar largura
-    max_width = 100
-    terminal_width = console.width or 120
-    panel_width = min(max_width, terminal_width - 4)
+    # Obter largura real do terminal
+    terminal_width = console.size.width
     
-    # ESTRATÉGIA FINAL: Renderizar Markdown para Texto ANSI -> Aplicar Highlighter
-    # Isto garante que temos estrutura Markdown mas com regex highlighting por cima
-    # sem conflitos de sintaxe.
+    # Constantes
+    DEFAULT_WIDTH = 120
+    MARGIN = 4
     
-    # 1. Capturar output do Markdown
+    # Decidir largura do conteúdo
+    if width:
+        content_width = min(width, terminal_width - MARGIN)
+    else:
+        content_width = min(DEFAULT_WIDTH, terminal_width - MARGIN)
+    
+    # Linha superior
+    render_header(duration)
+    
+    console.print()  # Espaço
+    
+    # Renderizar markdown com highlighting
     with console.capture() as capture:
-        console.print(md, width=panel_width)
-    ansi_text = capture.get()
+        console.print(md, width=content_width)
     
-    # 2. Converter para Rich Text
-    final_text = Text.from_ansi(ansi_text)
-    
-    # 3. Aplicar Highlighter (Caminhos e User)
+    final_text = Text.from_ansi(capture.get())
     PathHighlighter().highlight(final_text)
     
-    # 4. Renderizar Painel
-    panel = Panel(
-        final_text, # Usar o Text renderizado e realçado
-        box=ROUNDED,
-        border_style="blue",
-        padding=(1, 2),
-        width=panel_width,
-        subtitle=subtitle,
-        subtitle_align="right",
+    # Adicionar padding
+    padded = Padding(final_text, (0, 2))
+    console.print(padded)
+    
+    console.print()  # Espaço
+    
+    # Linha inferior
+    render_footer(copied)
+    
+    console.print()  # Espaço extra
+
+
+def render_code(
+    code: str,
+    language: str = "python",
+    theme: str = "monokai",
+    line_numbers: bool = False,
+    title: Optional[str] = None,
+    highlight_lines: Optional[set[int]] = None,
+) -> None:
+    """Renderiza código com syntax highlighting entre linhas decorativas."""
+    
+    # Limpar código
+    code = code.strip()
+    
+    syntax = Syntax(
+        code,
+        language,
+        theme=theme,
+        line_numbers=line_numbers,
+        word_wrap=True,
+        padding=(0, 1),
+        highlight_lines=highlight_lines,
     )
     
-    console.print(panel)
-
-
-# Removido _highlight_text_content pois agora usamos PathHighlighter no texto final
+    # Linha superior
+    if title:
+        render_divider(f"{icons.code} {title}", style="bright_blue")
+    else:
+        render_divider(f"{icons.code} {language}", style="bright_blue")
+    
+    console.print()  # Espaço
+    
+    # Código com padding
+    console.print(Padding(syntax, (0, 2)))
+    
+    console.print()  # Espaço
+    
+    # Linha inferior
+    render_divider(style="bright_blue")
+    console.print()
 
 
 def _preprocess_markdown(text: str) -> str:
@@ -330,9 +423,7 @@ def _preprocess_markdown(text: str) -> str:
     text = text.strip()
     
     # 1. Procurar e extrair conteúdo de blocos de código se existirem
-    # Procura pelo PRIMEIRO ``` e ÚLTIMO ```
     fence_pattern = r'```(?:\w+)?\s*\n(.*?)\n```'
-    # Usar findall para ver se há múltiplas ocorrências ou apenas envolvente
     matches = list(re.finditer(fence_pattern, text, re.DOTALL))
     
     if matches:
@@ -340,13 +431,13 @@ def _preprocess_markdown(text: str) -> str:
         first_match = matches[0]
         # Se começa perto do início e acaba perto do fim
         if first_match.start() < 10 and len(text) - first_match.end() < 10:
-             text = first_match.group(1)
+            text = first_match.group(1)
     
     # 2. Remover inline code wrapping envolvente (`...`)
     if text.startswith("`") and text.endswith("`") and not text.startswith("```"):
-         # Verificar se não é apenas um code span no meio
-         if text.count("`") == 2:
-             text = text[1:-1]
+        # Verificar se não é apenas um code span no meio
+        if text.count("`") == 2:
+            text = text[1:-1]
     
     # 3. Remover indentação comum (fixes "4 spaces indent = code block")
     text = textwrap.dedent(text)
@@ -392,55 +483,6 @@ def _preprocess_markdown(text: str) -> str:
 
 
 # =============================================================================
-# RENDERIZAÇÃO DE CÓDIGO
-# =============================================================================
-
-def render_code(
-    code: str,
-    language: str = "python",
-    theme: str = "monokai",
-    line_numbers: bool = False,
-    title: Optional[str] = None,
-    highlight_lines: Optional[set[int]] = None,
-) -> None:
-    """
-    Renderiza código com syntax highlighting.
-    
-    Args:
-        code: Código fonte
-        language: Linguagem de programação
-        theme: Tema de cores
-        line_numbers: Mostrar números de linha
-        title: Título opcional para o bloco
-        highlight_lines: Linhas a destacar
-    """
-    # Limpar código
-    code = code.strip()
-    
-    syntax = Syntax(
-        code,
-        language,
-        theme=theme,
-        line_numbers=line_numbers,
-        word_wrap=True,
-        padding=(0, 1),  # Pequeno padding horizontal
-        highlight_lines=highlight_lines,
-    )
-    
-    if title:
-        panel = Panel(
-            syntax,
-            title=f"{icons.code} {title}",
-            title_align="left",
-            border_style="bright_black",
-            padding=(0, 0),
-        )
-        console.print(panel)
-    else:
-        console.print(syntax)
-
-
-# =============================================================================
 # MENSAGENS DO SISTEMA
 # =============================================================================
 
@@ -482,20 +524,26 @@ def render_panel(
     border_style: str = "blue",
     padding: tuple[int, int] = (1, 2),
 ) -> None:
-    """Renderiza conteúdo num painel."""
+    """Renderiza conteúdo num painel (mantido para compatibilidade)."""
+    from rich.box import ROUNDED
+    
     panel = Panel(
         content,
         title=title if title else None,
         subtitle=subtitle if subtitle else None,
         border_style=border_style,
         padding=padding,
+        box=ROUNDED,
     )
     console.print(panel)
 
 
-def render_rule(title: str = "", style: str = "bright_black") -> None:
-    """Renderiza linha horizontal (regra)."""
-    console.print(Rule(title=title, style=style))
+def render_rule(title: str = "", style: str = "bright_black", align: str = "center") -> None:
+    """Renderiza linha horizontal full-width (regua tradicional)."""
+    if title:
+        console.print(Rule(title, style=style, align=align))
+    else:
+        console.print(Rule(style=style))
 
 
 def render_table(
@@ -505,24 +553,24 @@ def render_table(
     show_lines: bool = False,
     row_styles: Optional[list[str]] = None,
 ) -> None:
-    """
-    Renderiza uma tabela.
+    """Renderiza uma tabela entre linhas decorativas."""
     
-    Args:
-        headers: Cabeçalhos das colunas
-        rows: Linhas de dados
-        title: Título da tabela
-        show_lines: Mostrar linhas entre rows
-        row_styles: Estilos alternados para linhas
-    """
+    # Linha superior com título
+    if title:
+        render_divider(f"📊 {title}", style="bright_blue")
+    else:
+        render_divider(style="bright_blue")
+    
+    console.print()  # Espaço
+    
     table = Table(
-        title=title if title else None,
         show_header=True,
-        header_style="bold magenta",
+        header_style="bold bright_cyan",
         show_lines=show_lines,
-        row_styles=row_styles or ["", "dim"],  # Alternância de cores
+        row_styles=row_styles or ["", "dim"],
         border_style="bright_black",
         padding=(0, 1),
+        box=None,  # Sem bordas externas
     )
     
     for header in headers:
@@ -531,7 +579,13 @@ def render_table(
     for row in rows:
         table.add_row(*row)
     
-    console.print(table)
+    console.print(Padding(table, (0, 2)))
+    
+    console.print()  # Espaço
+    
+    # Linha inferior
+    render_divider(style="bright_blue")
+    console.print()
 
 
 # =============================================================================
@@ -621,7 +675,7 @@ def set_quiet_mode(quiet: bool = True) -> None:
     """Ativa/desativa modo silencioso."""
     global console
     if quiet:
-        console = create_console(no_color=True)
+        console = Console(theme=custom_theme, no_color=True, highlight=False)
 
 
 # =============================================================================
@@ -629,50 +683,120 @@ def set_quiet_mode(quiet: bool = True) -> None:
 # =============================================================================
 
 if __name__ == "__main__":
-    # Teste das funcionalidades
-    render_rule("Teste do Renderizador Markdown")
+    # Mostra a largura atual
+    term_w, term_h = get_terminal_size()
     
+    render_rule("🎨 Teste do Renderizador TUI Melhorado", style="bold bright_blue")
+    
+    console.print(f"[dim]Terminal: {term_w}×{term_h} | Unicode: {icons.unicode}[/dim]\n")
+    
+    # Teste de mensagens do sistema
     render_success("Módulo carregado com sucesso!")
     render_warning("Isto é um aviso")
     render_error("Isto é um erro", "Com detalhes adicionais")
     render_info("Informação útil")
+    render_debug("Mensagem de debug")
     
-    print()
-    render_rule("Markdown")
+    console.print()
     
+    # Teste de markdown
     test_md = """
-# Título Principal
+# 📘 Título Principal
 
-Este é um **texto em negrito** e *itálico*.
+Este é um **texto em negrito** e *itálico*. Também temos ***negrito e itálico***.
 
-## Código
+## 💻 Código
 
-Código inline: `print("Hello")`
+Código inline: `print("Hello")` funciona bem.
 
 ```python
 def hello(name: str) -> str:
+    '''Função de exemplo'''
     return f"Hello, {name}!"
+
+# Uso
+print(hello("Mundo"))
 ```
 
-## Lista
-- Item 1
-- Item 2
-  - Sub-item
+## 📝 Lista e Citação
 
-> Isto é um blockquote
+- Item 1 com **negrito**
+- Item 2 com *itálico*
+  - Sub-item A
+  - Sub-item B
+- Item 3
 
-[Link exemplo](https://github.com)
+> Isto é um blockquote importante
+> com múltiplas linhas
+
+## 🔗 Links
+
+Veja mais em [GitHub](https://github.com) ou [Rich](https://rich.readthedocs.io)
+
+---
+
+Caminho exemplo: `/home/user/projeto/arquivo.py` ou `C:\\Users\\mediaweb.global\\Documents`
 """
     
-    render_markdown(test_md)
+    render_markdown(test_md, title="Demonstração de Markdown", subtitle="v2.0")
     
-    render_rule("Tabela")
+    # Teste de código standalone
+    test_code = """
+class Example:
+    def __init__(self, value: int):
+        self.value = value
+    
+    def display(self):
+        print(f"Value: {self.value}")
+
+example = Example(42)
+example.display()
+"""
+    
+    render_code(test_code, language="python", title="Exemplo de Classe", line_numbers=True)
+    
+    # Teste de tabela
     render_table(
-        headers=["Nome", "Valor", "Status"],
+        headers=["Nome", "Tipo", "Status", "Valor"],
         rows=[
-            ["Config A", "123", "✓"],
-            ["Config B", "456", "✗"],
-            ["Config C", "789", "⚠"],
+            ["Config A", "String", "✓ Ativo", "123"],
+            ["Config B", "Integer", "✗ Inativo", "456"],
+            ["Config C", "Boolean", "⚠ Aviso", "True"],
+            ["Config D", "Float", "✓ Ativo", "3.14"],
         ],
-        title="Configurações",
+        title="Tabela de Configurações",
+        show_lines=False,
     )
+    
+    # Teste final adaptável
+    test_adaptive = """
+# 🚀 Teste Adaptável
+
+Este texto se **adapta automaticamente** à largura do terminal.
+
+## Características
+
+- Layout responsivo
+- Syntax highlighting
+- Ícones contextuais
+- Estilos consistentes
+
+```bash
+# Comandos de exemplo
+git clone https://github.com/user/repo.git
+cd repo
+pip install -r requirements.txt
+```
+
+### Conclusão
+
+O layout usa linhas horizontais ao invés de caixas, mantendo um visual **limpo e profissional**.
+"""
+    
+    render_markdown(
+        test_adaptive,
+        title="Teste de Responsividade",
+        subtitle=f"Terminal: {term_w}×{term_h}"
+    )
+    
+    render_rule("✨ Fim dos Testes", style="bold green")

@@ -580,16 +580,15 @@ def query_llm(
             response_text = execute_safe_commands(response_text)
         
         # Copiar para clipboard
-        from .render import copy_to_clipboard, icons
-        subtitle = None
-        if response_text.strip() and copy_to_clipboard(response_text.strip()):
-            subtitle = f"[blue]{icons.clipboard}[/blue] [dim]Copiado[/dim]"
+        from .render import copy_to_clipboard
+        copied = False
+        if response_text.strip():
+            copied = copy_to_clipboard(response_text.strip())
 
         # Renderizar resposta em painel bonito
-        if response_text.strip():
-            render_markdown(response_text, subtitle=subtitle)
-        
         duration_ms = int((time.time() - start_time) * 1000)
+        if response_text.strip():
+            render_markdown(response_text, duration=duration_ms / 1000.0, copied=copied)
         
         return LLMResponse(
             content=response_text,
