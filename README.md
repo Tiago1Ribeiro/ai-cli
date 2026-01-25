@@ -204,154 +204,153 @@ ai --check             # Verificar estado do sistema
 Poupa tempo com aliases integrados:
 
 ```bash
-ai f README.md summarize   # Same as: ai file
-ai e main.py               # Same as: ai explain
-ai t                       # Same as: ai tree
-ai s TODO                  # Same as: ai find (search)
+ai f README.md resume   # Igual a: ai file
+ai e main.py            # Igual a: ai explain
+ai t                    # Igual a: ai tree
+ai s TODO               # Igual a: ai find (search)
 ```
 
-### Continue Conversations
+### Continuar Conversações
 
 ```bash
-# First message
-ai explain neural networks
+# Primeira mensagem
+ai explica redes neuronais
 
-# Continue the conversation (keeps context)
-ai -c give me a code example
+# Continuar a conversa (mantém contexto)
+ai -c dá-me um exemplo de código
 
-# Keep going
-ai -c explain that in more detail
+# Continuar
+ai -c explica isso com mais detalhe
 ```
 
-### File Analysis
+### Análise de Ficheiros
 
 ```bash
-# Analyze a file
-ai file README.md summarize this file
+# Analisar um ficheiro
+ai file README.md resume este ficheiro
 
-# Explain code
+# Explicar código
 ai explain src/main.py
 
-# Pipe input
-cat error.log | ai what caused this error
-echo def hello pass | ai improve this code
+# Input via pipe
+cat error.log | ai o que causou este erro
+echo def hello pass | ai melhora este código
 ```
 
-### Integrated Tools
+### Ferramentas Integradas
 
-The AI can execute safe commands when needed:
+A IA pode executar comandos seguros quando necessário:
 
 ```bash
-# AI can list files
-ai show me python files in this directory
+# A IA pode listar ficheiros
+ai mostra-me ficheiros python neste diretório
 
-# AI can read files
-ai what does config.json contain
+# A IA pode ler ficheiros
+ai o que contém o config.json
 
-# AI can check git status
-ai what files have changed
+# A IA pode verificar estado do git
+ai que ficheiros mudaram
 
-# AI can search for patterns
-ai find all TODO comments
+# A IA pode procurar padrões
+ai encontra todos os comentários TODO
 ```
 
-### Direct Tools (Advanced)
+### Ferramentas Diretas (Avançado)
 
 ```bash
-# Project structure
+# Estrutura do projeto
 ai tree
 
-# Search with ripgrep
+# Pesquisa com ripgrep
 ai find def main
 
-# Interactive file finder
+# Selecionador interativo de ficheiros
 ai fzf
 ```
 
-### Model Management
+### Gestão de Modelos
 
 ```bash
-# List all available models
+# Listar todos os modelos disponíveis
 ai --models
 
-# Interactive model menu
+# Menu interativo de modelos
 ai model
 
-# Show current model
+# Mostrar modelo atual
 ai model current
 
-# Set default model
+# Definir modelo padrão
 ai model set local
 
-# Add new model
-ai model add mymodel llama3.2 "My custom model"
+# Adicionar novo modelo
+ai model add mymodel llama3.2 "O meu modelo personalizado"
 
-# Remove model
+# Remover modelo
 ai model remove mymodel
 ```
 
-### System Commands
+### Comandos do Sistema
 
 ```bash
-# Check system status
-ai check            # Verifies llm installation, models, config
+# Verificar estado do sistema
+ai check            # Verifica instalação do llm, modelos, config
 
-# View configuration
-ai config           # Shows current config.json
+# Ver configuração
+ai config           # Mostra config.json atual
 
-# Disable streaming (show complete output at once)
-ai --no-stream "explain this in detail"
+# Desativar streaming (mostrar output completo de uma vez)
+ai --no-stream explica isto em detalhe
 ```
 
-## Command Reference
+## Referência de Comandos
 
-### Main Command
+### Comando Principal
 
 ```
-ai [OPTIONS] [QUERY]
+ai [OPÇÕES] [QUERY]
 ```
 
-**Options:**
-- `-m, --model MODEL` - Specify model to use
-- `-c, --continue` - Continue previous conversation
-- `-v, --verbose` - Show detailed output
-- `--no-stream` - Disable streaming (show complete output)
-- `-V, --version` - Show version
-- `-h, --help` - Show help message
+**Opções:**
+- `-m, --model MODEL` - Especificar modelo a usar
+- `-c, --continue` - Continuar conversa anterior
+- `-v, --verbose` - Mostrar output detalhado
+- `--no-stream` - Desativar streaming (mostrar output completo)
+- `-V, --version` - Mostrar versão
+- `-h, --help` - Mostrar mensagem de ajuda
 
-### Commands
+### Comandos
 
-- `ai check` - Verify system state (llm installation, models, config)
-- `ai config` - Show/edit configuration
-- `ai file <path> [query]` - Analyze file(s)
-- `ai explain <path>` - Explain code file
-- `ai find <pattern>` - Search patterns with ripgrep
-- `ai fzf` - Interactive fuzzy file finder
-- `ai model` - Model management (interactive)
-- `ai models` - List available models
-- `ai tree` - Show directory structure
+- `ai check` - Verificar estado do sistema (instalação llm, modelos, config)
+- `ai config` - Mostrar/editar configuração
+- `ai file <caminho> [query]` - Analisar ficheiro(s)
+- `ai explain <caminho>` - Explicar ficheiro de código
+- `ai find <padrão>` - Pesquisar padrões com ripgrep
+- `ai fzf` - Selecionador fuzzy interativo de ficheiros
+- `ai model` - Gestão de modelos (interativo)
+- `ai models` - Listar modelos disponíveis
+- `ai tree` - Mostrar estrutura de diretórios
 
 ### Aliases
 
 - `ai f` → `ai file`
 - `ai e` → `ai explain`
-- `ai m` → `ai models`
 - `ai t` → `ai tree`
 - `ai s` → `ai find`
 
-### Model Subcommands
+### Subcomandos de Modelo
 
-- `ai model list` - List all configured models
-- `ai model current` - Show current default model
-- `ai model set <alias>` - Set default model
-- `ai model add <alias> <id> <desc>` - Add new model
-- `ai model remove <alias>` - Remove model
+- `ai model list` - Listar todos os modelos configurados
+- `ai model current` - Mostrar modelo padrão atual
+- `ai model set <alias>` - Definir modelo padrão
+- `ai model add <alias> <id> <desc>` - Adicionar novo modelo
+- `ai model remove <alias>` - Remover modelo
 
-## Features in Detail
+## Características em Detalhe
 
-### Auto-Copy to Clipboard
+### Cópia Automática para Clipboard
 
-Every response is automatically copied to your clipboard for quick usage. You'll see a confirmation:
+Cada resposta é automaticamente copiada para o teu clipboard para uso rápido. Verás uma confirmação:
 
 ```
 λ ai-cli • 2.3s ────────────────────────────────────────────────────────────────
@@ -361,42 +360,42 @@ Every response is automatically copied to your clipboard for quick usage. You'll
 ∴ copiado para clipboard ──────────────────────────────────────────────────────
 ```
 
-### Rich Terminal UI
+### Interface Terminal Rica
 
-- **Clean Layout**: Minimal 80-character width design
-- **Syntax Highlighting**: Code blocks with language detection
-- **Markdown Support**: Headers, lists, tables, quotes
-- **Path Detection**: Automatically highlights file paths
-- **Color Themes**: Cyan/blue aesthetic optimized for readability
+- **Layout Limpo**: Design minimalista com largura de 80 caracteres
+- **Syntax Highlighting**: Blocos de código com deteção de linguagem
+- **Suporte Markdown**: Cabeçalhos, listas, tabelas, citações
+- **Deteção de Caminhos**: Destaca automaticamente caminhos de ficheiros
+- **Temas de Cor**: Estética cyan/azul otimizada para legibilidade
 
-### Context Memory
+### Memória de Contexto
 
-Use `-c` to maintain conversation context:
+Usa `-c` para manter contexto da conversa:
 
 ```bash
-ai "I'm learning Python"          # First message
-ai -c "recommend some resources"  # AI remembers you're learning Python
-ai -c "what about web frameworks?" # AI knows the context
+ai estou a aprender Python          # Primeira mensagem
+ai -c recomenda alguns recursos      # IA lembra que estás a aprender Python
+ai -c e sobre web frameworks?        # IA conhece o contexto
 ```
 
-### System Integration
+### Integração com Sistema
 
-The AI can execute safe, read-only commands when helpful:
+A IA pode executar comandos seguros e só-leitura quando útil:
 
-- `ls` / `dir` - List files
-- `cat` / `type` - Read files
-- `pwd` - Current directory
-- `git status` - Git information
-- `tree` - Directory structure
-- `find` / `grep` - Search
+- `ls` / `dir` - Listar ficheiros
+- `cat` / `type` - Ler ficheiros
+- `pwd` - Diretório atual
+- `git status` - Informação do Git
+- `tree` - Estrutura de diretórios
+- `find` / `grep` - Pesquisa
 
-**Note**: Commands are only executed when explicitly needed by the AI's reasoning. You control when tools run.
+**Nota**: Comandos só são executados quando explicitamente necessários pelo raciocínio da IA. Tu controlas quando as ferramentas executam.
 
-## Troubleshooting
+## Resolução de Problemas
 
 ### "llm: command not found"
 
-Install the llm CLI tool:
+Instala a ferramenta llm CLI:
 
 ```bash
 pip install llm
@@ -404,47 +403,47 @@ pip install llm
 
 ### "No API key configured"
 
-Set up your LLM provider:
+Configura o teu fornecedor LLM:
 
 ```bash
-# For OpenAI
+# Para OpenAI
 llm keys set openai
 
-# For Claude
+# Para Claude
 llm install llm-claude-3
 llm keys set claude
 
-# For local models
+# Para modelos locais
 ollama pull llama3.2
 llm install llm-ollama
 ```
 
 ### "Model not found"
 
-Check available models:
+Verifica modelos disponíveis:
 
 ```bash
-# List llm models
+# Listar modelos llm
 llm models
 
-# List ai-cli configured models
+# Listar modelos configurados do ai-cli
 ai model list
 ```
 
-Then add your model:
+Depois adiciona o teu modelo:
 
 ```bash
-ai model add mymodel <model-id> "Description"
+ai model add mymodel <model-id> "Descrição"
 ai model set mymodel
 ```
 
-### Clipboard not working
+### Clipboard não funciona
 
-**Windows**: Should work out of the box with `clip.exe`
+**Windows**: Deve funcionar automaticamente com `clip.exe`
 
-**macOS**: Should work with `pbcopy`
+**macOS**: Deve funcionar com `pbcopy`
 
-**Linux**: Install `xclip` or `xsel`:
+**Linux**: Instala `xclip` ou `xsel`:
 
 ```bash
 # Ubuntu/Debian
@@ -457,69 +456,69 @@ sudo dnf install xclip
 sudo pacman -S xclip
 ```
 
-### Unicode characters not displaying
+### Caracteres Unicode não aparecem
 
-Make sure you're using a modern terminal:
-- **Windows**: Windows Terminal (recommended)
-- **macOS**: Terminal.app or iTerm2
-- **Linux**: GNOME Terminal, Konsole, or Alacritty
+Certifica-te que estás a usar um terminal moderno:
+- **Windows**: Windows Terminal (recomendado)
+- **macOS**: Terminal.app ou iTerm2
+- **Linux**: GNOME Terminal, Konsole ou Alacritty
 
-## Optional Dependencies
+## Dependências Opcionais
 
-Enhance functionality with these optional tools:
+Melhora a funcionalidade com estas ferramentas opcionais:
 
-- **ripgrep (rg)**: Fast search for `ai find` command
+- **ripgrep (rg)**: Pesquisa rápida para comando `ai find`
   ```bash
   # Windows: winget install BurntSushi.ripgrep.MSVC
   # macOS: brew install ripgrep
   # Linux: sudo apt install ripgrep
   ```
 
-- **fzf**: Interactive fuzzy finder for `ai fzf`
+- **fzf**: Selecionador fuzzy interativo para `ai fzf`
   ```bash
   # Windows: winget install fzf
   # macOS: brew install fzf
   # Linux: sudo apt install fzf
   ```
 
-- **tree**: Directory structure visualization
+- **tree**: Visualização de estrutura de diretórios
   ```bash
-  # Usually pre-installed on most systems
+  # Geralmente pré-instalado na maioria dos sistemas
   # Windows: built-in (tree /F)
   ```
 
-## Development
+## Desenvolvimento
 
-### Setup Development Environment
+### Configurar Ambiente de Desenvolvimento
 
 ```bash
-# Clone repository
+# Clonar repositório
 git clone https://github.com/mediaweb-global/cli-ai.git
 cd cli-ai
 
-# Create virtual environment
+# Criar ambiente virtual
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate  # No Windows: venv\Scripts\activate
 
-# Install in editable mode with dev dependencies
+# Instalar em modo editável com dependências de dev
 pip install -e ".[dev]"
 
-# Run tests
+# Executar testes
 pytest
 ```
 
-### Project Structure
+### Estrutura do Projeto
 
 ```
 cli-ai/
 ├── src/
 │   └── ai_cli/
 │       ├── __init__.py
-│       ├── main.py         # CLI entry point
-│       ├── config.py       # Configuration management
-│       ├── llm_client.py   # LLM interaction
-│       ├── render.py       # Terminal rendering
-│       └── tools/          # Integrated tools
+│       ├── main.py         # Ponto de entrada CLI
+│       ├── config.py       # Gestão de configuração
+│       ├── llm_client.py   # Interação com LLM
+│       ├── render.py       # Renderização no terminal
+│       └── tools/          # Ferramentas integradas
 │           ├── find.py
 │           ├── fzf.py
 │           ├── tree.py
@@ -530,19 +529,19 @@ cli-ai/
 └── LICENSE
 ```
 
-## Contributing
+## Contribuir
 
-Contributions are welcome! Please:
+Contribuições são bem-vindas! Por favor:
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+1. Faz fork do repositório
+2. Cria um branch de feature (`git checkout -b feature/funcionalidade-incrivel`)
+3. Faz commit das tuas alterações (`git commit -m 'Adiciona funcionalidade incrível'`)
+4. Faz push para o branch (`git push origin feature/funcionalidade-incrivel`)
+5. Abre um Pull Request
 
-## Configuration
+## Configuração
 
-Configuration is stored at:
+A configuração é guardada em:
 - **Windows**: `%APPDATA%\ai-cli\config.json`
 - **Linux/Mac**: `~/.config/ai-cli/config.json`
 
