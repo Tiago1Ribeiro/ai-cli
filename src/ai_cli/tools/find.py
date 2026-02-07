@@ -1,7 +1,9 @@
-"""Comando find - pesquisa com ripgrep."""
+"""Comando find - pesquisa com ripgrep ou grep."""
 
 import shutil
 import subprocess
+import sys
+import os
 
 import click
 
@@ -33,6 +35,26 @@ def run_ripgrep(pattern: str, path: str, context: int, ignore_case: bool) -> Non
         render_error(f"Erro ao executar ripgrep: {e}")
 
 
+def run_grep(pattern: str, path: str, context: int, ignore_case: bool) -> None:
+    """Fallback para grep em Unix."""
+    cmd = ["grep", "-r", "-n", "--color=always"]
+    
+    if context > 0:
+        cmd.extend(["-C", str(context)])
+    
+    if ignore_case:
+        cmd.append("-i")
+    
+    cmd.extend([pattern, path])
+    
+    try:
+        result = subprocess.run(cmd, capture_output=False)
+        if result.returncode == 1:
+            render_info(f"Nenhum resultado para '{pattern}'")
+    except Exception as e:
+        render_error(f"Erro ao executar grep: {e}")
+
+
 def run_findstr(pattern: str, path: str, ignore_case: bool) -> None:
     """Fallback para findstr no Windows."""
     cmd = ["findstr", "/S", "/N"]
@@ -40,10 +62,11 @@ def run_findstr(pattern: str, path: str, ignore_case: bool) -> None:
     if ignore_case:
         cmd.append("/I")
     
-    cmd.extend([pattern, f"{path}\\*"])
+    target = f"{path}\\*" if os.path.isdir(path) and not path.endswith("*") else path
+    cmd.extend([pattern, target])
     
     try:
-        result = subprocess.run(cmd, capture_output=False, shell=True)
+        result = subprocess.run(cmd, capture_output=False)
         if result.returncode == 1:
             render_info(f"Nenhum resultado para '{pattern}'")
     except Exception as e:
@@ -56,23 +79,20 @@ def run_findstr(pattern: str, path: str, ignore_case: bool) -> None:
 @click.option("-c", "--context", default=0, help="Linhas de contexto (default: 0)")
 @click.option("-i", "--ignore-case", is_flag=True, help="Ignora maiusculas/minusculas")
 def find_cmd(pattern: str, path: str, context: int, ignore_case: bool) -> None:
-    """Pesquisa padroes em ficheiros com ripgrep.
+    """Pesquisa padroes em ficheiros.
     
     \b
-    Exemplos:
-      ai find "def main"
-      ai find "TODO" src -c 2
-      ai find "error" -i
-      
-    \b
-    Nota: Requer ripgrep (rg) instalado para melhor experiencia.
-          Fallback para findstr no Windows se rg nao disponivel.
+    Prioridade:
+    1. ripgrep (rg) - Recomendado
+    2. grep (Linux/Mac)
+    3. findstr (Windows)
     """
     if has_ripgrep():
         run_ripgrep(pattern, path, context, ignore_case)
-    else:
-        render_warning("ripgrep (rg) nao encontrado. A usar findstr como fallback.")
-        render_info("Instala ripgrep para melhor experiencia: https://github.com/BurntSushi/ripgrep#installation")
-        console.print()
+    elif sys.platform == "win32":
+        render_warning("ripgrep nao encontrado. A usar findstr.")
         run_findstr(pattern, path, ignore_case)
+    else:
+        render_warning("ripgrep nao encontrado. A usar grep.")
+        run_grep(pattern, path, context, ignore_case)
 

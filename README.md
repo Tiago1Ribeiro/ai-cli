@@ -2,7 +2,7 @@
 
 Assistente de IA versátil para terminal, alimentado por LLMs, com execução de comandos, renderização rica de markdown e memória de contexto.
 
-![alt text](image.png)
+![alt text](assets\leiria_existe.png)
 
 ## Características
 
@@ -13,99 +13,180 @@ Assistente de IA versátil para terminal, alimentado por LLMs, com execução de
 - **Streaming em Direto**: Resposta em tempo real com animação
 - **Modelos Dinâmicos**: Adiciona, alterna e gere facilmente diferentes backends LLM
 
-## Requisitos
+## Começar (Quick Start)
 
-- **Python 3.9+**
-- **llm CLI** (ferramenta LLM de Simon Willison)
+Segue estes passos para instalar e configurar o AI CLI.
 
-## Instalação
+### 1. Instalar AI CLI (Método Recomendado: pipx)
 
-### 1. Instalar LLM CLI
-
-O AI CLI depende da excelente ferramenta `llm` de Simon Willison:
+O **pipx** instala aplicações Python isoladamente, mas torna o comando `ai` disponível globalmente. Não precisas de ativar ambientes virtuais para usar o comando.
 
 ```bash
+# 1. Instalar pipx (uma vez)
+python -m pip install --user pipx
+python -m pipx ensurepath
+
+# 2. Clonar o repositório
+git clone https://github.com/Tiago1Ribeiro/ai-cli.git
+cd ai-cli
+
+# 3. Instalar ai-cli globalmente (modo editável para desenvolvimento)
+pipx install -e .
+
+# 4. Reinicia o terminal e verifica
+ai --version
+```
+
+**Vantagens do pipx:**
+- ✅ Comando `ai` disponível em qualquer pasta, qualquer terminal
+- ✅ Sem necessidade de `conda activate` ou ativar venv
+- ✅ Isolamento total das dependências
+- ✅ Modo editável: altera o código em `src/` e as mudanças refletem-se imediatamente
+
+### Alternativa: Instalação Manual (Para Desenvolvimento Avançado)
+
+Se preferires controlo total sobre o ambiente:
+
+**Opção A: Usando `venv`**
+```bash
+# Windows
+python -m venv .venv
+.venv\Scripts\activate
+
+# Linux/Mac
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Instalar
+pip install -e .
+```
+
+**Opção B: Usando `conda`**
+```bash
+conda create -n ai-cli python=3.10
+conda activate ai-cli
+pip install -e .
+```
+
+**Nota**: Com esta opção, terás de ativar o ambiente sempre que quiseres usar o comando `ai`.
+
+### 2. Instalar Dependência Core
+
+O `ai-cli` depende da ferramenta `llm` para gerir modelos:
+
+```bash
+# Se instalaste via pipx (recomendado)
+pipx inject ai-cli llm
+
+# Se instalaste via pip/conda
 pip install llm
 ```
 
-### 2. Configurar o Fornecedor de LLM
+### 3. Configurar Modelos (Recomendado: Free Tier)
 
-Precisas de pelo menos um fornecedor de LLM configurado. **Opções locais gratuitas são recomendadas para começar.**
+O AI CLI usa a ferramenta `llm` para gerir modelos. Recomendamos fornecedores com **Free Tier** generoso e rápido.
 
-#### Opção A: Ollama (GRÁTIS - Recomendado)
+#### Opção A: Groq (Recomendado - Grátis e Ultra-Rápido)
+Ideal para respostas instantâneas. Modelo `llama-3.3-70b-versatile` grátis com muita quota.
 
-Executa modelos poderosos localmente no teu computador sem custos:
-
+1. **Obtém uma API Key grátis** em [console.groq.com](https://console.groq.com)
+2. **Instala o plugin Groq:**
 ```bash
-# 1. Instalar Ollama de https://ollama.ai
-# 2. Fazer pull de um modelo (exemplos abaixo)
-
-# Modelos recomendados:
-ollama pull llama3.2          # 3B - Rápido, bom para tarefas rápidas
-ollama pull qwen2.5-coder     # 7B - Excelente para código
-ollama pull mistral           # 7B - Ótimo para uso geral
-ollama pull deepseek-r1:8b    # 8B - Raciocínio forte
-
-# 3. Instalar plugin llm-ollama
-llm install llm-ollama
-
-# 4. Testar
-llm -m llama3.2 "Olá"
+pipx inject ai-cli llm-groq
 ```
 
-**Vantagens**: Grátis, privado, funciona offline, não precisa de API keys.
-
-#### Opção B: OpenAI (Pago)
-
+3. **Configura a API Key:**
 ```bash
-llm keys set openai
-# Cola a tua OpenAI API key
+# Windows (PowerShell)
+$env:PIPX_HOME = "$env:USERPROFILE\pipx"
+& "$env:PIPX_HOME\venvs\ai-cli\Scripts\python.exe" -m llm keys set groq
+# Cola a tua chave quando pedido (gsk_...)
 
-# Testar
-llm -m gpt-4o-mini "Olá"
+# Linux/Mac
+python -m llm keys set groq
 ```
 
-**Custo**: ~$0.15-$15 por 1M tokens dependendo do modelo.
-
-#### Opção C: Anthropic Claude (Pago)
-
+4. **Define o modelo padrão:**
 ```bash
-llm install llm-claude-3
-llm keys set claude
-# Cola a tua Anthropic API key
+# Windows
+& "$env:PIPX_HOME\venvs\ai-cli\Scripts\python.exe" -m llm models default llama-3.3-70b-versatile
 
-# Testar
-llm -m claude-3-5-sonnet-latest "Olá"
+# Linux/Mac
+python -m llm models default llama-3.3-70b-versatile
 ```
 
-**Custo**: ~$3-$15 por 1M tokens dependendo do modelo.
-
-#### Opção D: Outras Opções Grátis
-
+5. **Testa:**
 ```bash
-# Google Gemini (Tier gratuito disponível)
-llm install llm-gemini
-llm keys set gemini
-
-# Groq (Tier gratuito com inferência rápida)
-llm install llm-groq
-llm keys set groq
+ai olá mundo
 ```
 
-Vê a [documentação llm](https://llm.datasette.io/) para mais fornecedores.
+#### Opção B: Ollama (Local e Privado)
+Se preferes rodar localmente sem internet:
 
-### 3. Instalar AI CLI
+1. **Instala Ollama:** [ollama.com/download](https://ollama.com/download)
+2. **Faz pull de um modelo:**
+```bash
+ollama pull llama3.2
+```
+
+3. **Instala o plugin:**
+```bash
+pipx inject ai-cli llm-ollama
+```
+
+4. **Define como padrão:**
+```bash
+pipx inject ai-cli llm-cloudflare
+
+# Windows
+& "$env:PIPX_HOME\venvs\ai-cli\Scripts\python.exe" -m llm keys set cloudflare
+
+# Linux/Mac
+python -m llm keys set cloudflare
+# Linux/Mac
+python -m llm models default llama3.2
+```
+
+#### Opção C: Cloudflare Workers AI (Grátis)
+```bash
+llm install llm-cloudflare
+llm keys set cloudflare
+# Segue as instruções do plugin
+```
+
+### 4. Testar
+
+Agora que tens um modelo padrão definido no `llm`, o `ai` vai usá-lo automaticamente:
 
 ```bash
-# Clonar o repositório
-git clone https://github.com/mediaweb-global/cli-ai.git
-cd cli-ai
+ai olá mundo
+```
 
-# Instalar em modo de desenvolvimento
-pip install -e .
+### 🏃 Quick Reference - Mudar de Modelo
 
-# Verificar instalação
-ai --version
+```bash
+# Usar modelo diferente uma vez
+ai -m llama-3.1-8b-instant pergunta rápida
+
+# Mudar modelo default permanentemente (Windows)
+$env:PIPX_HOME = "$env:USERPROFILE\pipx"
+& "$env:PIPX_HOME\venvs\ai-cli\Scripts\python.exe" -m llm models default llama-3.3-70b-versatile
+
+# Ver modelos disponíveis
+ai --models
+
+# Menu interativo
+ai model
+```
+
+**💡 Dica:** Se instalaste com pipx e precisas de executar comandos `llm` diretamente, usa:
+```bash
+# Windows
+$env:PIPX_HOME = "$env:USERPROFILE\pipx"
+& "$env:PIPX_HOME\venvs\ai-cli\Scripts\python.exe" -m llm [comando]
+
+# Exemplo: Listar modelos
+& "$env:PIPX_HOME\venvs\ai-cli\Scripts\python.exe" -m llm models list
 ```
 
 ## Configuração
@@ -137,42 +218,35 @@ ai model list
 
 ### Ficheiro de Configuração de Modelos
 
-Edita `config.json` para personalizar modelos:
+Edita `config.json` para personalizar modelos ou aliases de conveniência:
 
 ```json
 {
-  "default_model": "maverick",
+  "default_model": null, 
   "models": {
-    "maverick": {
-      "model_id": "maverick",
-      "description": "Llama 4 Maverick 17B - Uso geral"
-    },
     "fast": {
-      "model_id": "fast",
-      "description": "Llama 3.3 70B - Rápido + qualidade"
+      "model_id": "llama-3.3-70b-versatile",
+      "description": "Llama 3.3 70B via Groq - Rápido e inteligente"
     },
     "quick": {
-      "model_id": "quick",
-      "description": "Llama 3.1 8B - Ultra-rápido"
+      "model_id": "llama-3.1-8b-instant",
+      "description": "Llama 3.1 8B via Groq - Ultra-rápido"
     },
-    "qwen": {
-      "model_id": "qwen",
-      "description": "Qwen3 32B - Código Python/JS"
-    },
-    "web": {
-      "model_id": "web",
-      "description": "Compound - Web search + tools"
+    "local": {
+      "model_id": "llama3.2",
+      "description": "Llama 3.2 local via Ollama"
     }
   }
 }
 ```
 
-**Modelos Incluídos:**
-- `maverick` - Llama 4 Maverick 17B - Uso geral (padrão)
-- `fast` - Llama 3.3 70B - Rápido + qualidade (280 tokens/s)
-- `quick` - Llama 3.1 8B - Ultra-rápido (560 tokens/s)
-- `qwen` - Qwen3 32B - Código Python/JS (400 tokens/s)
-- `web` - Compound - Web search + tools (450 tokens/s)
+**Nota**: Se `default_model` for null, o AI CLI usa o modelo padrão definido globalmente no `llm` (vê comando na secção Troubleshooting).
+
+**Modelos Groq Populares (gratuitos):**
+- `llama-3.3-70b-versatile` - Mais inteligente
+- `llama-3.1-8b-instant` - Mais rápido
+- `mixtral-8x7b-32768` - Contexto longo
+- `gemma2-9b-it` - Eficiente
 
 ## Uso
 
@@ -184,10 +258,42 @@ ai qual é a capital de França
 
 # Queries multi-palavra - SEM ASPAS
 ai explica computação quântica em termos simples
-
-# Usar modelo específico
-ai -m code escreve uma função quicksort
 ```
+
+### Mudar de Modelo
+
+Tens 3 formas de mudar de modelo:
+
+#### 1. Temporariamente (apenas para esta query)
+```bash
+# Usar flag -m com qualquer modelo instalado no llm
+ai -m llama-3.1-8b-instant pergunta rápida
+
+# Usar alias configurado no ai-cli
+ai -m fast explica isto em detalhe
+ai -m quick resposta rápida
+```
+
+#### 2. Mudar o modelo default do sistema (llm)
+Este é usado por todas as apps que usam `llm`, incluindo o `ai-cli`:
+
+```bash
+# Windows PowerShell
+$env:PIPX_HOME = "$env:USERPROFILE\pipx"
+& "$env:PIPX_HOME\venvs\ai-cli\Scripts\python.exe" -m llm models default llama-3.3-70b-versatile
+
+# Linux/Mac
+python -m llm models default llama-3.3-70b-versatile
+```
+
+#### 3. Usar o menu interativo (mais fácil)
+```bash
+ai model               # Menu interativo - escolhe modelo
+ai model set fast      # Define 'fast' como default (alias do ai-cli)
+ai model current       # Ver modelo atual
+```
+
+**Recomendação:** Usa a Opção 2 (default do llm) para um modelo "global", e a flag `-m` quando precisares de outro temporariamente.
 
 ### Comandos do Sistema (com --)
 
@@ -268,27 +374,34 @@ ai find def main
 ai fzf
 ```
 
-### Gestão de Modelos
+### Gestão de Modelos Avançada
 
 ```bash
-# Listar todos os modelos disponíveis
+# Ver todos os aliases configurados no ai-cli
 ai --models
 
-# Menu interativo de modelos
+# Menu interativo completo (adicionar/remover/configurar)
 ai model
 
-# Mostrar modelo atual
-ai model current
+# Adicionar novo alias
+ai model add myfast llama-3.1-8b-instant "Meu modelo rápido"
 
-# Definir modelo padrão
-ai model set local
+# Remover alias
+ai model remove myfast
 
-# Adicionar novo modelo
-ai model add mymodel llama3.2 "O meu modelo personalizado"
+# Listar modelos reais instalados no llm
+# Windows:
+$env:PIPX_HOME = "$env:USERPROFILE\pipx"
+& "$env:PIPX_HOME\venvs\ai-cli\Scripts\python.exe" -m llm models list
 
-# Remover modelo
-ai model remove mymodel
+# Linux/Mac:
+python -m llm models list
 ```
+
+**Nota sobre Aliases vs Modelos:**
+- **Aliases** (`fast`, `quick`, etc.) são atalhos configurados no `ai-cli` (ficheiro `config.json`)
+- **Modelos** (`llama-3.3-70b-versatile`, etc.) são os IDs reais instalados no `llm`
+- Podes usar ambos com a flag `-m`
 
 ### Comandos do Sistema
 
@@ -393,48 +506,122 @@ A IA pode executar comandos seguros e só-leitura quando útil:
 
 ## Resolução de Problemas
 
+### "ai: command not found" (após instalar com pipx)
+
+Depois de executar `pipx ensurepath`, precisas de:
+1. **Fechar e reabrir o terminal** (ou reiniciar o sistema)
+2. Verificar se o PATH foi atualizado:
+   ```bash
+   # Windows PowerShell
+   $env:PATH
+   
+   # Deve conter algo como:
+   # C:\Users\TeuUser\.local\bin
+   # C:\Users\TeuUser\AppData\Roaming\Python\Python3XX\Scripts
+   ```
+
+Se ainda não funcionar:
+```bash
+# Usar caminho completo temporariamente (Windows)
+C:\Users\TeuUser\.local\bin\ai.exe --help
+
+# Ou executar via Python
+python -m pipx run ai --help
+```
+
+### "llm: command not found"
+
 ### "llm: command not found"
 
 Instala a ferramenta llm CLI:
 
 ```bash
+# Se usaste pipx (recomendado)
+pipx inject ai-cli llm
+
+# Se usaste pip
 pip install llm
 ```
 
-### "No API key configured"
+### "No API key configured" ou "Unknown model"
 
-Configura o teu fornecedor LLM:
+**Setup Rápido - Groq (Recomendado):**
 
 ```bash
-# Para OpenAI
-llm keys set openai
+# 1. Instalar plugin
+pipx inject ai-cli llm-groq
 
-# Para Claude
-llm install llm-claude-3
-llm keys set claude
+# 2. Configurar chave (obter em console.groq.com)
+# Windows PowerShell:
+$env:PIPX_HOME = "$env:USERPROFILE\pipx"
+& "$env:PIPX_HOME\venvs\ai-cli\Scripts\python.exe" -m llm keys set groq
 
-# Para modelos locais
+# 3. Definir modelo default
+& "$env:PIPX_HOME\venvs\ai-cli\Scripts\python.exe" -m llm models default llama-3.3-70b-versatile
+
+# 4. Testar
+ai olá
+```
+
+**Outras opções:**
+
+```bash
+# Para OpenAI (pago)
+pipx inject ai-cli openai
+# Windows: & "$env:PIPX_HOME\venvs\ai-cli\Scripts\python.exe" -m llm keys set openai
+# Linux/Mac: python -m llm keys set openai
+
+# Para Ollama (local/grátis)
 ollama pull llama3.2
-llm install llm-ollama
+pipx inject ai-cli llm-ollama
+# Windows: & "$env:PIPX_HOME\venvs\ai-cli\Scripts\python.exe" -m llm models default llama3.2
 ```
 
-### "Model not found"
-
-Verifica modelos disponíveis:
+### Listar modelos disponíveis
 
 ```bash
-# Listar modelos llm
-llm models
+# Modelos configurados no ai-cli (aliases)
+ai --models
 
-# Listar modelos configurados do ai-cli
-ai model list
+# Modelos reais instalados no llm
+# Windows:
+$env:PIPX_HOME = "$env:USERPROFILE\pipx"
+& "$env:PIPX_HOME\venvs\ai-cli\Scripts\python.exe" -m llm models list
+
+# Linux/Mac:
+python -m llm models list
 ```
 
-Depois adiciona o teu modelo:
+### Perguntas Frequentes - Modelos
 
+**Q: Qual a diferença entre `ai -m fast` e `ai -m llama-3.3-70b-versatile`?**
+A: `fast` é um alias (atalho) configurado no `ai-cli` que aponta para `llama-3.3-70b-versatile`. Podes usar qualquer um.
+
+**Q: Como sei que modelo está a ser usado?**
+A: Usa `ai model current` ou verifica o cabeçalho da resposta (mostra duração e modelo).
+
+**Q: Posso ter vários modelos instalados?**
+A: Sim! Instala vários plugins (`llm-groq`, `llm-ollama`, etc.) e muda entre eles com `-m` ou alterando o default.
+
+**Q: Como adiciono um modelo que não está nos aliases?**
+A: Dois métodos:
 ```bash
-ai model add mymodel <model-id> "Descrição"
-ai model set mymodel
+# Método 1: Usar diretamente o ID do llm
+ai -m mixtral-8x7b-32768 tua pergunta
+
+# Método 2: Criar alias
+ai model add mix mixtral-8x7b-32768 "Mixtral rápido"
+ai -m mix tua pergunta
+```
+
+**Q: Onde vejo todos os modelos Groq disponíveis?**
+A: Depois de instalar `llm-groq`:
+```bash
+# Windows:
+& "$env:PIPX_HOME\venvs\ai-cli\Scripts\python.exe" -m llm models list | Select-String "groq"
+
+# Linux/Mac:
+python -m llm models list | grep -i groq
 ```
 
 ### Clipboard não funciona
@@ -487,10 +674,55 @@ Melhora a funcionalidade com estas ferramentas opcionais:
   # Windows: built-in (tree /F)
   ```
 
+## Gestão da Instalação
+
+### Atualizar o AI CLI
+```bash
+# Se instalaste com pipx
+cd ai-cli
+git pull
+pipx reinstall ai-cli
+
+# Se instalaste com pip (no venv/conda)
+cd ai-cli
+git pull
+pip install -e . --upgrade
+```
+
+### Desinstalar
+```bash
+# Se instalaste com pipx
+pipx uninstall ai-cli
+
+# Se instalaste com pip
+pip uninstall ai-cli
+```
+
+### Listar aplicações instaladas via pipx
+```bash
+pipx list
+```
+
 ## Desenvolvimento
 
 ### Configurar Ambiente de Desenvolvimento
 
+**Método Recomendado (pipx):**
+```bash
+# Clonar repositório
+git clone https://github.com/mediaweb-global/cli-ai.git
+cd cli-ai
+
+# Instalar em modo editável global
+pipx install -e .
+pipx inject ai-cli llm pytest pytest-cov
+
+# O comando 'ai' está agora disponível globalmente
+# e qualquer alteração no código em src/ tem efeito imediato
+ai --version
+```
+
+**Método Tradicional (venv):**
 ```bash
 # Clonar repositório
 git clone https://github.com/mediaweb-global/cli-ai.git

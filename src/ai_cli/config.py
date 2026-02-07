@@ -4,6 +4,7 @@ import json
 import locale
 import os
 import subprocess
+import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Optional
@@ -54,37 +55,31 @@ class ModelConfig:
         return cls(**data)
 
 
-# Modelos built-in
+# Modelos built-in (Groq free tier recomendados)
 BUILTIN_MODELS: dict[str, ModelConfig] = {
-    "maverick": ModelConfig(
-        alias="maverick",
-        model_id="maverick",
-        description="Llama 4 Maverick 17B - Uso geral",
-        tokens_per_sec=None,
-    ),
     "fast": ModelConfig(
         alias="fast",
-        model_id="fast",
+        model_id="llama-3.3-70b-versatile",
         description="Llama 3.3 70B - Rápido + qualidade",
         tokens_per_sec=280,
     ),
     "quick": ModelConfig(
         alias="quick",
-        model_id="quick",
+        model_id="llama-3.1-8b-instant",
         description="Llama 3.1 8B - Ultra-rápido",
         tokens_per_sec=560,
     ),
     "qwen": ModelConfig(
         alias="qwen",
-        model_id="qwen",
-        description="Qwen3 32B - Código Python/JS",
-        tokens_per_sec=400,
+        model_id="qwen2.5-coder-32b-instruct",
+        description="Qwen2.5 32B - Código Python/JS",
+        tokens_per_sec=200,
     ),
-    "web": ModelConfig(
-        alias="web",
-        model_id="web",
-        description="Compound - Web search + tools",
-        tokens_per_sec=450,
+    "mixtral": ModelConfig(
+        alias="mixtral",
+        model_id="mixtral-8x7b-32768",
+        description="Mixtral 8x7B - Contexto longo (32k)",
+        tokens_per_sec=250,
     ),
 }
 
@@ -97,7 +92,7 @@ BUILTIN_MODELS: dict[str, ModelConfig] = {
 class AppConfig:
     """Configuração da aplicação (persistida em JSON)."""
     
-    default_model: str = "maverick"
+    default_model: Optional[str] = None  # None = usar default do sistema (llm)
     custom_models: dict[str, dict[str, Any]] = field(default_factory=dict)
     system_prompt: str = "Responde sempre em português de Portugal. Sê conciso e direto."
     stream_by_default: bool = True
@@ -124,8 +119,13 @@ class AppConfig:
         # Garantir compatibilidade com versões antigas
         default_prompt = "Responde sempre em português de Portugal. Sê conciso e direto."
         
+        # Migrar 'maverick' para None se estiver na config antiga
+        def_model = data.get("default_model")
+        if def_model == "maverick":
+            def_model = None
+            
         return cls(
-            default_model=data.get("default_model", "maverick"),
+            default_model=def_model,
             custom_models=data.get("custom_models", {}),
             system_prompt=data.get("system_prompt", default_prompt),
             stream_by_default=data.get("stream_by_default", True),
@@ -229,7 +229,7 @@ def list_models() -> list[ModelConfig]:
     return list(get_all_models().values())
 
 
-def get_default_model() -> str:
+def get_default_model() -> Optional[str]:
     """Obtém o modelo default atual."""
     return load_config().default_model
 
@@ -304,9 +304,9 @@ def remove_custom_model(alias: str) -> bool:
     if alias in config.custom_models:
         del config.custom_models[alias]
         
-        # Se era o default, reverter para maverick
+        # Se era o default, reverter para system default
         if config.default_model == alias:
-            config.default_model = "maverick"
+            config.default_model = None
         
         # Remover do histórico
         if alias in config.recent_models:
@@ -331,7 +331,7 @@ def discover_llm_models() -> list[str]:
     """
     try:
         result = subprocess.run(
-            ["llm", "models", "--json"],
+            [sys.executable, "-m", "llm", "models", "--json"],
             capture_output=True,
             text=True,
             timeout=10,

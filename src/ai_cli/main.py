@@ -23,7 +23,10 @@ from .render import (
 # =============================================================================
 
 # Modelo padrão (pode vir de config/env)
-DEFAULT_MODEL = get_default_model() if hasattr(sys.modules.get('.config', object()), 'get_default_model') else "maverick"
+try:
+    DEFAULT_MODEL = get_default_model() 
+except (ImportError, AttributeError):
+    DEFAULT_MODEL = None
 
 # Exit codes padronizados
 EXIT_SUCCESS = 0
@@ -55,9 +58,13 @@ except Exception as e:
 def validate_model_callback(
     ctx: click.Context, 
     param: click.Parameter, 
-    value: str
-) -> str:
+    value: Optional[str]
+) -> Optional[str]:
     """Valida se o modelo existe."""
+    # Se for None, significa usar default do sistema (llm)
+    if value is None:
+        return None
+        
     valid_models = [m.alias for m in list_models()]
     
     if value not in valid_models:
@@ -71,10 +78,9 @@ def validate_model_callback(
                 f"Modelo '{value}' ambíguo. Correspondências: {', '.join(matches)}"
             )
         else:
-            raise click.BadParameter(
-                f"Modelo '{value}' não encontrado. "
-                f"Disponíveis: {', '.join(valid_models)}"
-            )
+            # Se não é alias interno, pode ser modelo direto do llm
+            # Não falhar aqui, deixar query_llm tratar
+             return value
     
     return value
 
@@ -98,7 +104,7 @@ model_option = click.option(
     "-m", "--model",
     default=DEFAULT_MODEL,
     callback=validate_model_callback,
-    help=f"Modelo a usar (default: {DEFAULT_MODEL})",
+    help=f"Modelo a usar (default: {DEFAULT_MODEL or 'system-default'})",
     metavar="MODEL",
 )
 
@@ -151,7 +157,8 @@ class AliasedGroup(click.Group):
 @click.argument("prompt", nargs=-1, required=False)
 @model_option
 @click.option("-V", "--version", is_flag=True, help="Mostra versão")
-@click.option("-c", "--continue", "continue_chat", is_flag=True, help="Continua conversa anterior")
+@click.option("-n", "--new", "new_chat", is_flag=True, help="Inicia nova conversa (ignora contexto)")
+@click.option("-c", "--continue", "continue_chat_flag", is_flag=True, help="(Padrão) Continua conversa anterior")
 @click.option("--no-stream", is_flag=True, help="Desativa streaming (output completo)")
 @click.option("--config", "show_config", is_flag=True, help="Mostra configuração atual")
 @click.option("--models", "show_models", is_flag=True, help="Lista modelos disponíveis")
@@ -163,7 +170,8 @@ def cli(
     prompt: tuple[str, ...],
     model: str,
     version: bool,
-    continue_chat: bool,
+    new_chat: bool,
+    continue_chat_flag: bool,
     no_stream: bool,
     show_config: bool,
     show_models: bool,
@@ -174,8 +182,8 @@ def cli(
     
     \b
     Uso Básico:
-      ai como funciona python
-      ai -m fast qual a capital de Portugal
+      ai olá mundo            # Continua a conversa anterior (default)
+      ai -n muda de assunto   # Inicia nova conversa
     
     \b
     Comandos Auxiliares:
@@ -210,8 +218,11 @@ def cli(
     ctx.obj["model"] = model
     ctx.obj["verbose"] = verbose
     ctx.obj["no_stream"] = no_stream
-    ctx.obj["continue"] = continue_chat
     
+    # Lógica de conversação (Default é continuar, exceto se --new)
+    # O fallback automático em llm_client.py trata do caso de não haver conversa
+    ctx.obj["continue"] = not new_chat
+
     if version:
         _show_version(verbose)
         return
@@ -255,7 +266,7 @@ def cli(
             render_info(f"Lidos {len(stdin_content)} caracteres do stdin")
     
     # Indicar que está a continuar conversa
-    if continue_chat and verbose:
+    if ctx.obj["continue"] and verbose:
         render_info("A continuar conversa anterior...")
     
     # Executar query
@@ -264,7 +275,7 @@ def cli(
             full_prompt,
             model=ctx.obj["model"],
             stream=not no_stream,
-            continue_conversation=continue_chat,
+            continue_conversation=ctx.obj["continue"],
         )
     except KeyboardInterrupt:
         console.print("\n[dim]Cancelado pelo utilizador[/dim]")
@@ -290,7 +301,7 @@ def _show_version(verbose: bool = False) -> None:
 def _show_config() -> None:
     """Mostra configuração atual."""
     render_info("Configuração atual:")
-    console.print(f"  Modelo padrão: [cyan]{DEFAULT_MODEL}[/cyan]")
+    console.print(f"  Modelo padrão: [cyan]{DEFAULT_MODEL or 'system-default (llm)'}[/cyan]")
     console.print(f"  Tools disponíveis: [cyan]{TOOLS_AVAILABLE}[/cyan]")
 
 
@@ -450,13 +461,6 @@ def explain(
 # =============================================================================
 # COMANDOS DE TOOLS
 # =============================================================================
-    """Guarda output num ficheiro."""
-    try:
-        with open(filepath, "w", encoding="utf-8") as f:
-            f.write(content)
-        render_success(f"Guardado em: {filepath}")
-    except Exception as e:
-        render_error(f"Erro ao guardar: {e}")
 
 
 # =============================================================================

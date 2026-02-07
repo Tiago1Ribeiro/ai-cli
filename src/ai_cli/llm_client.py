@@ -14,7 +14,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Callable, Iterator, Optional
 
-from .config import DEFAULT_MODEL, DEFAULT_SYSTEM_PROMPT, get_model
+from .config import DEFAULT_MODEL, DEFAULT_SYSTEM_PROMPT, get_model, get_default_model
 from .render import (
     console,
     render_error,
@@ -247,6 +247,12 @@ def execute_safe_commands(
         cmd_str = match.group(1).strip()
         parts = cmd_str.split(maxsplit=1)
         cmd_name = parts[0].lower()
+        
+        # Validar Whitelist estrita
+        ALLOWED_COMMANDS = {"ls", "dir", "cat", "type", "pwd", "git", "tree", "find", "grep", "search"}
+        if cmd_name not in ALLOWED_COMMANDS:
+             return f"\n**[Erro: Comando '{cmd_name}' não permitido. Permitidos: {', '.join(sorted(ALLOWED_COMMANDS))}]**\n"
+
         cmd_arg = parts[1] if len(parts) > 1 else None
         
         try:
@@ -519,7 +525,7 @@ def _stream_windows(
 
 def query_llm(
     prompt: str,
-    model: str = DEFAULT_MODEL,
+    model: Optional[str] = None, # None = usar default configurado no sistema (llm default)
     system_prompt: Optional[str] = None,
     stream: bool = True,
     timeout: Optional[float] = LLM_TIMEOUT,
@@ -531,7 +537,7 @@ def query_llm(
     
     Args:
         prompt: A pergunta/prompt para o modelo
-        model: Alias do modelo a usar
+        model: Alias do modelo a usar (None para usar default do sistema)
         system_prompt: System prompt (usa DEFAULT se None)
         stream: Se True, mostra resposta em streaming
         timeout: Timeout em segundos (None = sem limite)
@@ -547,17 +553,33 @@ def query_llm(
     # Validar prompt
     if not prompt.strip():
         render_error("Prompt vazio. Use: ai a tua pergunta aqui")
-        return LLMResponse(content="", success=False, error="Prompt vazio", model=model)
+        return LLMResponse(content="", success=False, error="Prompt vazio", model=str(model))
     
-    # Validar modelo
-    try:
-        model_config = get_model(model)
-    except ValueError as e:
-        render_error(str(e))
-        return LLMResponse(content="", success=False, error=str(e), model=model)
+    # Validar modelo (apenas se especificado)
+    model_id_arg = None
+    if model:
+        try:
+            model_config = get_model(model)
+            model_id_arg = model_config.model_id
+        except ValueError as e:
+            render_error(str(e))
+            return LLMResponse(content="", success=False, error=str(e), model=model)
+    else:
+        # Tentar obter default do próprio ai-cli, se existir
+        default = get_default_model()
+        if default:
+            try:
+                model_config = get_model(default)
+                model_id_arg = model_config.model_id
+                model = default
+            except ValueError:
+                # Default configurado inválido, ignorar e deixar llm decidir
+                pass
     
     # Construir comando
-    cmd = ["llm"]
+    # Use Python do mesmo ambiente para executar llm como módulo
+    # Funciona tanto em ambientes isolados (pipx) como em venv/conda
+    cmd = [sys.executable, "-m", "llm"]
     
     # Continuar conversa anterior
     if continue_conversation:
@@ -568,14 +590,37 @@ def query_llm(
         system = system_prompt or get_contextualized_system_prompt()
         cmd.extend(["--system", system])
     
-    cmd.extend(["-m", model_config.model_id, prompt])
+    # Adicionar modelo APENAS se tivermos um ID
+    if model_id_arg:
+        cmd.extend(["-m", model_id_arg])
+        
+    cmd.append(prompt)
     
     logger.debug(f"Executando: {' '.join(cmd[:4])}...")
     
     try:
-        # Coletar resposta com spinner
-        response_text = _query_with_spinner(cmd, timeout)
+        # Tentar execução (com supressão de erro se for conversação contínua)
+        response_text, error = _query_with_spinner(cmd, timeout, suppress_error=continue_conversation)
         
+        # Fallback: Se falhar por falta de conversa, iniciar nova
+        if error and continue_conversation and "conversation" in str(error).lower():
+            render_info("Nenhuma conversa anterior encontrada. A iniciar nova conversa...")
+            
+            # Remover -c e adicionar system prompt
+            cmd_retry = [c for c in cmd if c != "-c"]
+            system = system_prompt or get_contextualized_system_prompt()
+            cmd_retry.extend(["--system", system])
+            
+            # Repetir query
+            response_text, error = _query_with_spinner(cmd_retry, timeout)
+            
+        # Se ainda houver erro (ou foi outro erro)
+        if error:
+            if continue_conversation and "conversation" not in str(error).lower():
+                # Erro original foi suprimido, mostrar agora
+                render_error(f"llm falhou: {error}")
+            return None
+            
         if response_text is None:
             return None
         
@@ -596,7 +641,7 @@ def query_llm(
         
         return LLMResponse(
             content=response_text,
-            model=model_config.model_id,
+            model=model_id_arg or "system-default",
             duration_ms=duration_ms,
             success=True,
         )
@@ -613,10 +658,14 @@ def query_llm(
         return LLMResponse(content="", success=False, error=str(e), model=model)
 
 
-def _query_with_spinner(cmd: list[str], timeout: Optional[float]) -> Optional[str]:
+def _query_with_spinner(
+    cmd: list[str], 
+    timeout: Optional[float], 
+    suppress_error: bool = False
+) -> tuple[Optional[str], Optional[str]]:
     """
     Executa query com spinner (sem streaming de texto).
-    Retorna o texto completo.
+    Retorna (output, error). Se error existe, output é None.
     """
     buffer = []
     
@@ -642,23 +691,25 @@ def _query_with_spinner(cmd: list[str], timeout: Optional[float]) -> Optional[st
         with console.status("[dim]A pensar...[/dim]", spinner="dots"):
             # Coletar stdout até acabar
             if process.stdout:
-                for char in iter(lambda: process.stdout.read(1), ''):
-                    buffer.append(char)
+                for line in process.stdout:
+                    buffer.append(line)
         
         process.wait(timeout=timeout)
         
         if process.returncode != 0 and process.stderr:
             error = process.stderr.read()
             if error:
-                render_error(f"llm falhou: {error}")
-                return None
+                if not suppress_error:
+                    render_error(f"llm falhou: {error}")
+                return None, error
         
-        return "".join(buffer)
+        return "".join(buffer), None
         
     except subprocess.TimeoutExpired:
         process.kill()
-        render_error("Timeout - modelo demorou muito")
-        return None
+        if not suppress_error:
+            render_error("Timeout - modelo demorou muito")
+        return None, "Timeout"
 
 
 # =============================================================================
@@ -668,7 +719,7 @@ def _query_with_spinner(cmd: list[str], timeout: Optional[float]) -> Optional[st
 def query_llm_with_file(
     filepath: str,
     prompt: str,
-    model: str = DEFAULT_MODEL,
+    model: Optional[str] = None,
     stream: bool = True,
 ) -> Optional[LLMResponse]:
     """
@@ -729,7 +780,7 @@ def query_llm_with_file(
 
 def explain_file(
     filepath: str,
-    model: str = DEFAULT_MODEL,
+    model: Optional[str] = None,
     detailed: bool = False,
     stream: bool = True,
 ) -> Optional[LLMResponse]:
