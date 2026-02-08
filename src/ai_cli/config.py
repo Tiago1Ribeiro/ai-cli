@@ -59,26 +59,26 @@ class ModelConfig:
 BUILTIN_MODELS: dict[str, ModelConfig] = {
     "fast": ModelConfig(
         alias="fast",
-        model_id="llama-3.3-70b-versatile",
-        description="Llama 3.3 70B - Rápido + qualidade",
+        model_id="groq/moonshotai/kimi-k2-instruct-0905",
+        description="Kimi K2 - Rápido + inteligente",
         tokens_per_sec=280,
     ),
     "quick": ModelConfig(
         alias="quick",
-        model_id="llama-3.1-8b-instant",
+        model_id="groq/llama-3.1-8b-instant",
         description="Llama 3.1 8B - Ultra-rápido",
         tokens_per_sec=560,
     ),
     "qwen": ModelConfig(
         alias="qwen",
-        model_id="qwen2.5-coder-32b-instruct",
-        description="Qwen2.5 32B - Código Python/JS",
+        model_id="groq/qwen/qwen3-32b",
+        description="Qwen3 32B - Modelo de propósito geral",
         tokens_per_sec=200,
     ),
-    "mixtral": ModelConfig(
-        alias="mixtral",
-        model_id="mixtral-8x7b-32768",
-        description="Mixtral 8x7B - Contexto longo (32k)",
+    "versatile": ModelConfig(
+        alias="versatile",
+        model_id="groq/llama-3.3-70b-versatile",
+        description="Llama 3.3 70B - Modelo versátil",
         tokens_per_sec=250,
     ),
 }
