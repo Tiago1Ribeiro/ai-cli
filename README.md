@@ -9,7 +9,13 @@
 └─────────────────────────────────────────────────────────────┘
 ```
 
-![AI CLI Demo](assets/leiria_existe.png)
+## Demos
+
+### Instalação Completa
+![AI CLI Installation Demo](ai-cli-demo.gif)
+
+### Exemplos de Utilização
+![AI CLI Usage Examples](ai-cli-usage.gif)
 
 ---
 
