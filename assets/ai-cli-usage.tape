@@ -74,13 +74,13 @@ Type "echo === File Analysis ==="
 Enter
 Sleep 1s
 
-Type "ai file pyproject.toml what are the main dependencies"
-Enter
-Sleep 18s
-
-Type "ai explain src\ai_cli\config.py"
+Type "ai file ..\pyproject.toml what are the main dependencies"
 Enter
 Sleep 20s
+
+Type "ai explain ..\src\ai_cli\config.py"
+Enter
+Sleep 22s
 
 # === SECTION 5: Project Structure ===
 Type "cls"
@@ -111,9 +111,9 @@ Type "echo === Using Different Model ==="
 Enter
 Sleep 1s
 
-Type "ai -m fast tell me a fun fact about Python"
+Type "ai -m quick tell me a fun fact about Python"
 Enter
-Sleep 15s
+Sleep 18s
 
 # === Done ===
 Type "cls"
