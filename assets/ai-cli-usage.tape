@@ -1,4 +1,4 @@
-# VHS Tape - AI CLI Usage Examples (Complete)
+# VHS Tape - AI CLI Some Usage Examples 
 # Usage: vhs ai-cli-usage.tape
 
 Output ai-cli-usage.gif
@@ -11,7 +11,7 @@ Set Width 1200
 Set Height 800
 Set Padding 20
 Set TypingSpeed 50ms
-Set PlaybackSpeed 2.5
+Set PlaybackSpeed 1.5
 
 # Load API key silently
 Hide
@@ -33,10 +33,6 @@ Type "ai --version"
 Enter
 Sleep 3s
 
-Type "ai --models"
-Enter
-Sleep 5s
-
 Type "ai --check"
 Enter
 Sleep 4s
@@ -48,11 +44,11 @@ Type "echo === Simple Queries ==="
 Enter
 Sleep 1s
 
-Type "ai what is the capital of Portugal"
+Type "ai qual e a capital de Portugal"
 Enter
 Sleep 15s
 
-Type "ai -c and the population"
+Type "ai -c e a populacao"
 Enter
 Sleep 15s
 
@@ -63,55 +59,29 @@ Type "echo === New Conversation ==="
 Enter
 Sleep 1s
 
-Type "ai -n explain REST API in one sentence"
+Type "ai -n explica REST API numa frase"
 Enter
 Sleep 15s
 
-# === SECTION 4: File Operations ===
-Type "cls"
-Enter
-Type "echo === File Analysis ==="
-Enter
-Sleep 1s
-
-Type "ai file ..\pyproject.toml what are the main dependencies"
-Enter
-Sleep 20s
-
-Type "ai explain ..\src\ai_cli\config.py"
-Enter
-Sleep 22s
-
-# === SECTION 5: Project Structure ===
-Type "cls"
-Enter
-Type "echo === Project Tools ==="
-Enter
-Sleep 1s
-
-Type "ai tree"
-Enter
-Sleep 8s
-
-# === SECTION 6: Pipe Input ===
+# === SECTION 4: Pipe Input ===
 Type "cls"
 Enter
 Type "echo === Pipe Input ==="
 Enter
 Sleep 1s
 
-Type "echo def hello(): pass | ai improve this code"
+Type "echo def hello(): pass | ai melhora este codigo"
 Enter
 Sleep 18s
 
-# === SECTION 7: Different Model ===
+# === SECTION 5: Different Model ===
 Type "cls"
 Enter
 Type "echo === Using Different Model ==="
 Enter
 Sleep 1s
 
-Type "ai -m quick tell me a fun fact about Python"
+Type "ai -m quick tempo em Lisboa amanha"
 Enter
 Sleep 18s
 
