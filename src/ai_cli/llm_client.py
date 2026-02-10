@@ -17,10 +17,15 @@ from typing import Callable, Iterator, Optional
 from .config import DEFAULT_MODEL, DEFAULT_SYSTEM_PROMPT, get_model, get_default_model
 from .render import (
     console,
+    copy_to_clipboard,
     render_error,
+    render_footer,
+    render_header,
     render_markdown,
     render_info,
     render_warning,
+    _preprocess_markdown,
+    _get_content_width,
 )
 
 
@@ -45,6 +50,38 @@ LLM_TIMEOUT = 300     # 5 minutos para LLM (modelos grandes demoram)
 # Limites
 MAX_FILE_SIZE = 100_000  # ~100KB
 MAX_RESPONSE_LENGTH = 50_000  # Limite de resposta
+
+# Session tracking - ficheiro temporário para saber se já houve conversa
+import tempfile
+_SESSION_FILE = Path(tempfile.gettempdir()) / "ai-cli-session.flag"
+
+
+def _has_active_conversation() -> bool:
+    """Verifica se existe uma conversa activa na sessão llm."""
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "llm", "logs", "-n", "1", "--json"],
+            capture_output=True, text=True, timeout=2,
+            encoding=SYSTEM_ENCODING, errors="replace",
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _mark_conversation_started() -> None:
+    """Marca que já iniciámos pelo menos uma conversa."""
+    try:
+        _SESSION_FILE.touch()
+    except Exception:
+        pass
+
+
+def _session_has_history() -> bool:
+    """Verifica rapidamente se já houve conversa nesta sessão."""
+    return _SESSION_FILE.exists()
 
 
 # =============================================================================
@@ -97,7 +134,7 @@ def _get_git_branch_cached(cwd: str) -> Optional[str]:
             cwd=cwd,
             capture_output=True,
             text=True,
-            timeout=2,
+            timeout=0.5,
             encoding=SYSTEM_ENCODING,
             errors="replace",
         )
@@ -599,45 +636,60 @@ def query_llm(
     logger.debug(f"Executando: {' '.join(cmd[:4])}...")
     
     try:
-        # Tentar execução (com supressão de erro se for conversação contínua)
-        response_text, error = _query_with_spinner(cmd, timeout, suppress_error=continue_conversation)
+        # Smart conversation: se pedir -c mas não há histórico, ir directo para nova conversa
+        if continue_conversation and not _session_has_history():
+            # Verificação rápida: se nunca falámos nesta sessão, passar logo para nova
+            # Remover -c e adicionar system prompt
+            cmd = [c for c in cmd if c != "-c"]
+            system = system_prompt or get_contextualized_system_prompt()
+            cmd.extend(["--system", system])
+            continue_conversation = False
         
-        # Fallback: Se falhar por falta de conversa, iniciar nova
-        if error and continue_conversation and "conversation" in str(error).lower():
-            render_info("Nenhuma conversa anterior encontrada. A iniciar nova conversa...")
+        if stream:
+            response_text, error = _query_with_streaming(cmd, timeout, start_time)
+        else:
+            response_text, error = _query_with_spinner(cmd, timeout)
             
+        # Fallback: Se -c falhou por falta de conversa
+        if error and continue_conversation and "conversation" in str(error).lower():
             # Remover -c e adicionar system prompt
             cmd_retry = [c for c in cmd if c != "-c"]
             system = system_prompt or get_contextualized_system_prompt()
             cmd_retry.extend(["--system", system])
             
-            # Repetir query
-            response_text, error = _query_with_spinner(cmd_retry, timeout)
+            if stream:
+                response_text, error = _query_with_streaming(cmd_retry, timeout, start_time)
+            else:
+                response_text, error = _query_with_spinner(cmd_retry, timeout)
             
-        # Se ainda houver erro (ou foi outro erro)
+        # Se ainda houver erro
         if error:
-            if continue_conversation and "conversation" not in str(error).lower():
-                # Erro original foi suprimido, mostrar agora
-                render_error(f"llm falhou: {error}")
+            render_error(f"llm falhou: {error}")
             return None
             
         if response_text is None:
             return None
         
+        # Marcar que já houve conversa
+        _mark_conversation_started()
+        
         # Executar comandos seguros se houver
         if execute_commands and "[CMD:" in response_text:
             response_text = execute_safe_commands(response_text)
         
-        # Copiar para clipboard
-        from .render import copy_to_clipboard
-        copied = False
-        if response_text.strip():
-            copied = copy_to_clipboard(response_text.strip())
-
-        # Renderizar resposta em painel bonito
         duration_ms = int((time.time() - start_time) * 1000)
-        if response_text.strip():
+        
+        # Se não usou streaming, renderizar agora (streaming já renderizou)
+        if not stream and response_text.strip():
+            copied = copy_to_clipboard(response_text.strip())
             render_markdown(response_text, duration=duration_ms / 1000.0, copied=copied)
+        
+        # Se usou streaming, copiar para clipboard DEPOIS (não bloqueia render)
+        copied = False
+        if stream and response_text.strip():
+            copied = copy_to_clipboard(response_text.strip())
+            render_footer(copied)
+            console.print()
         
         return LLMResponse(
             content=response_text,
@@ -658,22 +710,33 @@ def query_llm(
         return LLMResponse(content="", success=False, error=str(e), model=model)
 
 
-def _query_with_spinner(
-    cmd: list[str], 
-    timeout: Optional[float], 
-    suppress_error: bool = False
-) -> tuple[Optional[str], Optional[str]]:
-    """
-    Executa query com spinner (sem streaming de texto).
-    Retorna (output, error). Se error existe, output é None.
-    """
-    buffer = []
-    
-    # Preparar environment com UTF-8 forçado no Windows
+def _get_llm_env() -> dict:
+    """Preparar environment com UTF-8 forçado no Windows."""
     env = os.environ.copy()
     if sys.platform == "win32":
         env["PYTHONIOENCODING"] = "utf-8"
         env["PYTHONUTF8"] = "1"
+    return env
+
+
+def _query_with_streaming(
+    cmd: list[str],
+    timeout: Optional[float],
+    start_time: float,
+) -> tuple[Optional[str], Optional[str]]:
+    """
+    Executa query com streaming real:
+    - Mostra spinner "A pensar..." até à 1a linha
+    - Imprime header (λ ai-cli • Xs)
+    - Faz streaming de cada linha à medida que chega
+    - Footer (∴ copiado) é adicionado pelo caller
+    """
+    import queue
+    import time
+    from rich.markdown import Markdown
+    from rich.padding import Padding
+    
+    env = _get_llm_env()
     
     process = subprocess.Popen(
         cmd,
@@ -682,14 +745,123 @@ def _query_with_spinner(
         text=True,
         encoding=SYSTEM_ENCODING,
         errors="replace",
-        bufsize=1,  # Line buffered
+        bufsize=1,
+        env=env,
+    )
+    
+    output_queue: queue.Queue = queue.Queue()
+    full_output: list[str] = []
+    error_output: list[str] = []
+    header_printed = False
+    
+    def stdout_reader(stream, q):
+        try:
+            for line in iter(stream.readline, ''):
+                q.put(('output', line))
+            stream.close()
+        except Exception:
+            pass
+        q.put(('done_stdout', None))
+    
+    def stderr_reader(stream, q):
+        try:
+            for line in iter(stream.readline, ''):
+                q.put(('error', line))
+            stream.close()
+        except Exception:
+            pass
+        q.put(('done_stderr', None))
+    
+    stdout_thread = threading.Thread(target=stdout_reader, args=(process.stdout, output_queue), daemon=True)
+    stderr_thread = threading.Thread(target=stderr_reader, args=(process.stderr, output_queue), daemon=True)
+    stdout_thread.start()
+    stderr_thread.start()
+    
+    done_count = 0
+    
+    # Fase 1: Spinner até 1a linha
+    spinner = console.status("[dim]A pensar...[/dim]", spinner="dots")
+    spinner.start()
+    
+    try:
+        while done_count < 2:
+            if timeout and (time.time() - start_time) > timeout:
+                process.kill()
+                spinner.stop()
+                return None, "Timeout"
+            
+            try:
+                msg_type, content = output_queue.get(timeout=0.1)
+            except queue.Empty:
+                continue
+            
+            if msg_type.startswith('done'):
+                done_count += 1
+                continue
+            elif msg_type == 'error' and content:
+                error_output.append(content)
+                continue
+            elif msg_type == 'output' and content:
+                if not header_printed:
+                    # Parar spinner, imprimir header
+                    spinner.stop()
+                    duration = time.time() - start_time
+                    render_header(duration)
+                    console.print()
+                    header_printed = True
+                
+                full_output.append(content)
+    finally:
+        spinner.stop()
+    
+    process.wait()
+    
+    # Verificar erros
+    if process.returncode != 0 and error_output:
+        error_text = "".join(error_output).strip()
+        if error_text:
+            return None, error_text
+    
+    if not full_output:
+        return None, "Sem resposta"
+    
+    response_text = "".join(full_output)
+    
+    # Renderizar o markdown completo (o header já foi impresso)
+    clean_text = _preprocess_markdown(response_text)
+    md = Markdown(clean_text, code_theme="monokai", hyperlinks=True)
+    c_width = _get_content_width()
+    console.print(Padding(md, (0, 2)), width=c_width)
+    console.print()
+    # Footer será impresso pelo caller (depois de clipboard)
+    
+    return response_text, None
+
+
+def _query_with_spinner(
+    cmd: list[str], 
+    timeout: Optional[float], 
+) -> tuple[Optional[str], Optional[str]]:
+    """
+    Executa query com spinner (sem streaming de texto).
+    Retorna (output, error). Se error existe, output é None.
+    """
+    buffer = []
+    env = _get_llm_env()
+    
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding=SYSTEM_ENCODING,
+        errors="replace",
+        bufsize=1,
         env=env,
     )
     
     try:
-        # Spinner enquanto coleta output
         with console.status("[dim]A pensar...[/dim]", spinner="dots"):
-            # Coletar stdout até acabar
             if process.stdout:
                 for line in process.stdout:
                     buffer.append(line)
@@ -699,16 +871,12 @@ def _query_with_spinner(
         if process.returncode != 0 and process.stderr:
             error = process.stderr.read()
             if error:
-                if not suppress_error:
-                    render_error(f"llm falhou: {error}")
                 return None, error
         
         return "".join(buffer), None
         
     except subprocess.TimeoutExpired:
         process.kill()
-        if not suppress_error:
-            render_error("Timeout - modelo demorou muito")
         return None, "Timeout"
 
 
