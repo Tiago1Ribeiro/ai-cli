@@ -81,6 +81,12 @@ BUILTIN_MODELS: dict[str, ModelConfig] = {
         description="Llama 3.3 70B - Modelo versátil",
         tokens_per_sec=250,
     ),
+    "web": ModelConfig(
+        alias="web",
+        model_id="groq/groq/compound",
+        description="Compound - Acesso web e pesquisa",
+        tokens_per_sec=200,
+    ),
 }
 
 
