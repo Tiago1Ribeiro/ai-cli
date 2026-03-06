@@ -102,9 +102,9 @@ def read_stdin_if_available() -> Optional[str]:
 # Opções comuns reutilizáveis
 model_option = click.option(
     "-m", "--model",
-    default=DEFAULT_MODEL,
+    default=None,
     callback=validate_model_callback,
-    help=f"Modelo a usar (default: {DEFAULT_MODEL or 'system-default'})",
+    help="Modelo a usar (default: config atual ou system-default)",
     metavar="MODEL",
 )
 
@@ -139,6 +139,23 @@ class AliasedGroup(click.Group):
         # Tentar alias primeiro
         cmd_name = self.ALIASES.get(cmd_name, cmd_name)
         return super().get_command(ctx, cmd_name)
+
+    def resolve_command(
+        self,
+        ctx: click.Context,
+        args: list[str],
+    ) -> tuple[Optional[str], Optional[click.Command], list[str]]:
+        """Permite prompt livre quando o primeiro token não é um subcomando."""
+        if not args:
+            return None, None, []
+
+        cmd_name = self.ALIASES.get(args[0], args[0])
+        cmd = super().get_command(ctx, cmd_name)
+        if cmd is not None:
+            return cmd_name, cmd, args[1:]
+
+        prompt_cmd = super().get_command(ctx, "__prompt__")
+        return "__prompt__", prompt_cmd, args
     
     def list_commands(self, ctx: click.Context) -> list[str]:
         return super().list_commands(ctx)
@@ -154,7 +171,6 @@ class AliasedGroup(click.Group):
         "allow_interspersed_args": False,
     }
 )
-@click.argument("prompt", nargs=-1, required=False)
 @model_option
 @click.option("-V", "--version", is_flag=True, help="Mostra versão")
 @click.option("-n", "--new", "new_chat", is_flag=True, help="Inicia nova conversa (ignora contexto)")
@@ -167,7 +183,6 @@ class AliasedGroup(click.Group):
 @click.pass_context
 def cli(
     ctx: click.Context,
-    prompt: tuple[str, ...],
     model: str,
     version: bool,
     new_chat: bool,
@@ -215,7 +230,7 @@ def cli(
     """
     # Guardar opções no contexto para subcomandos
     ctx.ensure_object(dict)
-    ctx.obj["model"] = model
+    ctx.obj["model"] = model or get_default_model()
     ctx.obj["verbose"] = verbose
     ctx.obj["no_stream"] = no_stream
     
@@ -243,38 +258,38 @@ def cli(
     # Se há subcomando, deixa executar
     if ctx.invoked_subcommand is not None:
         return
-    
-    # Verificar stdin (pipe)
+    _run_prompt_query(ctx, ())
+
+
+def _run_prompt_query(ctx: click.Context, prompt: tuple[str, ...]) -> None:
+    """Executa o fluxo principal de prompt livre."""
+    verbose = ctx.obj.get("verbose", False)
+
     stdin_content = read_stdin_if_available()
-    
-    # Se não há prompt nem stdin, mostra ajuda
+
     if not prompt and not stdin_content:
-        console.print(ctx.get_help())
+        console.print(ctx.parent.get_help() if ctx.parent else ctx.get_help())
         return
-    
-    # Construir prompt completo
+
     full_prompt = " ".join(prompt) if prompt else ""
-    
-    # Se há stdin, combinar com prompt
+
     if stdin_content:
         if full_prompt:
             full_prompt = f"{full_prompt}\n\n---\n\n{stdin_content}"
         else:
             full_prompt = f"Analisa o seguinte:\n\n{stdin_content}"
-        
+
         if verbose:
             render_info(f"Lidos {len(stdin_content)} caracteres do stdin")
-    
-    # Indicar que está a continuar conversa
+
     if ctx.obj["continue"] and verbose:
         render_info("A continuar conversa anterior...")
-    
-    # Executar query
+
     try:
         query_llm(
             full_prompt,
             model=ctx.obj["model"],
-            stream=not no_stream,
+            stream=not ctx.obj.get("no_stream", False),
             continue_conversation=ctx.obj["continue"],
         )
     except KeyboardInterrupt:
@@ -283,6 +298,15 @@ def cli(
     except Exception as e:
         render_error("Erro na query", str(e) if verbose else None)
         ctx.exit(EXIT_ERROR)
+
+
+@cli.command(name="__prompt__", hidden=True, context_settings={"ignore_unknown_options": True})
+@click.argument("prompt", nargs=-1, required=False)
+@click.pass_context
+def prompt_passthrough(ctx: click.Context, prompt: tuple[str, ...]) -> None:
+    """Subcomando interno para suportar prompts livres."""
+    parent_ctx = ctx.parent or ctx
+    _run_prompt_query(parent_ctx, prompt)
 
 
 def _show_version(verbose: bool = False) -> None:
@@ -300,13 +324,15 @@ def _show_version(verbose: bool = False) -> None:
 
 def _show_config() -> None:
     """Mostra configuração atual."""
+    current_default = get_default_model()
     render_info("Configuração atual:")
-    console.print(f"  Modelo padrão: [cyan]{DEFAULT_MODEL or 'system-default (llm)'}[/cyan]")
+    console.print(f"  Modelo padrão: [cyan]{current_default or 'system-default (llm)'}[/cyan]")
     console.print(f"  Tools disponíveis: [cyan]{TOOLS_AVAILABLE}[/cyan]")
 
 
 def _list_models_table() -> None:
     """Lista modelos disponíveis em formato tabela."""
+    current_default = get_default_model()
     model_list = list_models()
     headers = ["Alias", "Descrição", "Tokens/seg", "Default"]
     rows = [
@@ -314,7 +340,7 @@ def _list_models_table() -> None:
             m.alias,
             m.description,
             str(m.tokens_per_sec) if m.tokens_per_sec else "-",
-            "✓" if m.alias == DEFAULT_MODEL else "",
+            "✓" if m.alias == current_default else "",
         ]
         for m in model_list
     ]
@@ -435,6 +461,7 @@ def explain(
       ai explain app.py -o docs.md
     """
     verbose = ctx.obj.get("verbose", False)
+    selected_model = model or get_default_model()
     
     if verbose:
         render_info(f"A explicar: {filepath}")
@@ -442,7 +469,7 @@ def explain(
     try:
         result = explain_file(
             filepath,
-            model=model,
+            model=selected_model,
             detailed=detailed,
             stream=not ctx.obj.get("no_stream", False),
         )
@@ -545,7 +572,7 @@ def model_set(alias: str) -> None:
         set_default_model(alias)
         render_success(f"Modelo default: {alias} ({model_config.description})")
     except ValueError as e:
-        render_error(str(e))
+        raise click.ClickException(str(e))
 
 
 @model.command(name="add")
@@ -603,6 +630,11 @@ def model_current() -> None:
     from .config import get_default_model, get_model
     
     alias = get_default_model()
+    if not alias:
+        console.print("Modelo atual: [bold cyan]system-default[/bold cyan]")
+        console.print("  Origem: configuração externa do llm")
+        return
+
     model_config = get_model(alias)
     
     console.print(f"Modelo atual: [bold cyan]{alias}[/bold cyan]")

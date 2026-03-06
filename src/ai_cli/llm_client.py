@@ -227,6 +227,7 @@ Sê  direto e informativo.
 
 # Importar uma vez no topo (lazy import para evitar circular)
 _safe_commands_module = None
+_CMD_PATTERN = re.compile(r'\[CMD:\s*([^\]]+)\]', re.IGNORECASE)
 
 
 def _get_safe_commands():
@@ -239,6 +240,83 @@ def _get_safe_commands():
         except ImportError:
             _safe_commands_module = False
     return _safe_commands_module
+
+
+def _split_markdown_sections(text: str) -> list[tuple[bool, str]]:
+    """Divide markdown em secções executáveis e literais."""
+    if not text:
+        return []
+
+    sections: list[tuple[bool, str]] = []
+    buffer: list[str] = []
+    in_fence = False
+    fence_marker = ""
+
+    def flush(executable: bool) -> None:
+        if buffer:
+            sections.append((executable, "".join(buffer)))
+            buffer.clear()
+
+    for line in text.splitlines(keepends=True):
+        stripped = line.lstrip()
+        fence_match = re.match(r'(`{3,}|~{3,})', stripped)
+
+        if fence_match:
+            marker = fence_match.group(1)
+            if in_fence and stripped.startswith(fence_marker):
+                buffer.append(line)
+                flush(False)
+                in_fence = False
+                fence_marker = ""
+                continue
+
+            if not in_fence:
+                flush(True)
+                in_fence = True
+                fence_marker = marker
+                buffer.append(line)
+                continue
+
+        buffer.append(line)
+
+    flush(not in_fence)
+    return sections
+
+
+def _replace_commands_outside_inline_code(text: str, replacer: Callable[[re.Match[str]], str]) -> str:
+    """Substitui marcadores CMD ignorando inline code markdown."""
+    if not text:
+        return text
+
+    result: list[str] = []
+    cursor = 0
+
+    for match in re.finditer(r'(`+)(.+?)\1', text, flags=re.DOTALL):
+        plain = text[cursor:match.start()]
+        if plain:
+            result.append(_CMD_PATTERN.sub(replacer, plain))
+        result.append(match.group(0))
+        cursor = match.end()
+
+    tail = text[cursor:]
+    if tail:
+        result.append(_CMD_PATTERN.sub(replacer, tail))
+
+    return "".join(result)
+
+
+def _strip_inline_code(text: str) -> str:
+    """Remove spans de inline code para análise de CMD."""
+    return re.sub(r'(`+)(.+?)\1', '', text, flags=re.DOTALL)
+
+
+def _contains_executable_commands(text: str) -> bool:
+    """Indica se há comandos CMD fora de blocos literais."""
+    return any(
+        _CMD_PATTERN.search(_strip_inline_code(section))
+        for executable, section in _split_markdown_sections(text)
+        if executable
+    )
 
 
 def execute_safe_commands(
@@ -260,10 +338,14 @@ def execute_safe_commands(
     safe_commands = _get_safe_commands()
     if not safe_commands:
         return text
-    
-    # Padrão para detectar [CMD: ...]
-    pattern = r'\[CMD:\s*([^\]]+)\]'
-    matches = list(re.finditer(pattern, text))
+
+    executable_sections = _split_markdown_sections(text)
+    matches: list[re.Match[str]] = []
+
+    for executable, section in executable_sections:
+        if not executable:
+            continue
+        matches.extend(list(_CMD_PATTERN.finditer(_strip_inline_code(section))))
     
     if not matches:
         return text
@@ -299,7 +381,23 @@ def execute_safe_commands(
             logger.warning(f"Erro ao executar comando '{cmd_str}': {e}")
             return f"\n**[Erro: {e}]**\n"
     
-    return re.sub(pattern, replace_command, text, count=max_commands)
+    replacements_left = max_commands
+    output_parts: list[str] = []
+
+    def limited_replace(match: re.Match[str]) -> str:
+        nonlocal replacements_left
+        if replacements_left <= 0:
+            return match.group(0)
+        replacements_left -= 1
+        return replace_command(match)
+
+    for executable, section in executable_sections:
+        if executable:
+            output_parts.append(_replace_commands_outside_inline_code(section, limited_replace))
+        else:
+            output_parts.append(section)
+
+    return "".join(output_parts)
 
 
 def _execute_single_command(safe_commands, cmd_name: str, cmd_arg: Optional[str]):
@@ -389,11 +487,11 @@ def _format_command_result(result) -> str:
     """Formata CommandResult para inserir no texto (sem Rich tags)."""
     if hasattr(result, 'success'):
         if not result.success:
-            return f"\n**Erro:** {result.error}"
+            return f"\n\n**Erro:** {result.error}\n\n"
         
         # Se tem output direto (pwd, git status, etc)
         if result.output:
-            return f"\n```\n{result.output.strip()}\n```"
+            return f"\n\n```text\n{result.output.strip()}\n```\n\n"
         
         # Se tem metadata com items (ls/dir) - formatação com emojis
         if result.metadata and "items" in result.metadata:
@@ -410,9 +508,9 @@ def _format_command_result(result) -> str:
                     size_str = f" ({_format_size(size)})" if size else ""
                     lines.append(f"  {icon} {name}{size_str}")
             
-            return "\n```\n" + "\n".join(lines) + "\n```"
+                return "\n\n```text\n" + "\n".join(lines) + "\n```\n\n"
     
-    return "\n*(sem output)*"
+            return "\n\n*(sem output)*\n\n"
 
 
 def _get_file_icon(ext: str) -> str:
@@ -674,22 +772,14 @@ def query_llm(
         _mark_conversation_started()
         
         # Executar comandos seguros se houver
-        if execute_commands and "[CMD:" in response_text:
+        if execute_commands and _contains_executable_commands(response_text):
             response_text = execute_safe_commands(response_text)
         
         duration_ms = int((time.time() - start_time) * 1000)
         
-        # Se não usou streaming, renderizar agora (streaming já renderizou)
-        if not stream and response_text.strip():
+        if response_text.strip():
             copied = copy_to_clipboard(response_text.strip())
             render_markdown(response_text, duration=duration_ms / 1000.0, copied=copied)
-        
-        # Se usou streaming, copiar para clipboard DEPOIS (não bloqueia render)
-        copied = False
-        if stream and response_text.strip():
-            copied = copy_to_clipboard(response_text.strip())
-            render_footer(copied)
-            console.print()
         
         return LLMResponse(
             content=response_text,
@@ -725,16 +815,10 @@ def _query_with_streaming(
     start_time: float,
 ) -> tuple[Optional[str], Optional[str]]:
     """
-    Executa query com streaming real:
-    - Mostra spinner "A pensar..." até à 1a linha
-    - Imprime header (λ ai-cli • Xs)
-    - Faz streaming de cada linha à medida que chega
-    - Footer (∴ copiado) é adicionado pelo caller
+    Executa query com spinner até haver output e devolve o texto bruto.
     """
     import queue
     import time
-    from rich.markdown import Markdown
-    from rich.padding import Padding
     
     env = _get_llm_env()
     
@@ -752,7 +836,6 @@ def _query_with_streaming(
     output_queue: queue.Queue = queue.Queue()
     full_output: list[str] = []
     error_output: list[str] = []
-    header_printed = False
     
     def stdout_reader(stream, q):
         try:
@@ -802,14 +885,6 @@ def _query_with_streaming(
                 error_output.append(content)
                 continue
             elif msg_type == 'output' and content:
-                if not header_printed:
-                    # Parar spinner, imprimir header
-                    spinner.stop()
-                    duration = time.time() - start_time
-                    render_header(duration)
-                    console.print()
-                    header_printed = True
-                
                 full_output.append(content)
     finally:
         spinner.stop()
@@ -826,15 +901,6 @@ def _query_with_streaming(
         return None, "Sem resposta"
     
     response_text = "".join(full_output)
-    
-    # Renderizar o markdown completo (o header já foi impresso)
-    clean_text = _preprocess_markdown(response_text)
-    md = Markdown(clean_text, code_theme="monokai", hyperlinks=True)
-    c_width = _get_content_width()
-    console.print(Padding(md, (0, 2)), width=c_width)
-    console.print()
-    # Footer será impresso pelo caller (depois de clipboard)
-    
     return response_text, None
 
 

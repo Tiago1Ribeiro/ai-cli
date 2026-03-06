@@ -254,11 +254,50 @@ def render_footer(copied: bool = False) -> None:
 # =============================================================================
 
 def _preprocess_markdown(text: str) -> str:
-    """Limpeza básica sem remover fences válidas."""
-    text = text.strip()
-    text = textwrap.dedent(text)
-    # Remover >2 newlines consecutivas
-    return re.sub(r'\n{3,}', '\n\n', text)
+    """Limpeza básica preservando fences e blocos de código."""
+    if not text:
+        return ""
+
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = text.strip("\n")
+
+    lines = text.split("\n")
+    cleaned_lines: list[str] = []
+    in_code_fence = False
+    fence_marker = ""
+    blank_count = 0
+
+    for line in lines:
+        stripped = line.lstrip()
+        fence_match = re.match(r"(`{3,}|~{3,})", stripped)
+
+        if fence_match:
+            marker = fence_match.group(1)
+            if in_code_fence and stripped.startswith(fence_marker):
+                in_code_fence = False
+                fence_marker = ""
+            elif not in_code_fence:
+                in_code_fence = True
+                fence_marker = marker
+
+            cleaned_lines.append(line.rstrip())
+            blank_count = 0
+            continue
+
+        if in_code_fence:
+            cleaned_lines.append(line)
+            continue
+
+        if not stripped:
+            blank_count += 1
+            if blank_count <= 1:
+                cleaned_lines.append("")
+            continue
+
+        blank_count = 0
+        cleaned_lines.append(line.rstrip())
+
+    return "\n".join(cleaned_lines)
 
 
 def render_markdown(
