@@ -75,3 +75,6 @@ tests
 
 # recording
 record-demo.md
+
+# mp4 files
+*.mp4
