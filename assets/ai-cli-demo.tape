@@ -1,119 +1,76 @@
-# VHS Tape - AI CLI Real Installation Demo
+# VHS Tape - AI CLI Installation Demo
 # Usage: vhs ai-cli-demo.tape
-# Prerequisites: pipx in PATH, .env with GROQ_API_KEY
+# Prerequisites: Python 3.9+, pipx in PATH
+# Run from the ai-cli project root directory
 
 Output ai-cli-demo.gif
-Output ai-cli-demo.mp4
 
 Set Theme "Catppuccin Mocha"
 Set FontFamily "Cascadia Code"
 Set FontSize 16
 Set Width 1200
-Set Height 800
+Set Height 700
 Set Padding 20
 Set TypingSpeed 40ms
-Set PlaybackSpeed 2.0
+Set PlaybackSpeed 2
+
+# Use PowerShell on Windows
+Set Shell "pwsh"
 
 # Clear screen
 Hide
-Type "cls"
+Type "Clear-Host"
 Enter
+Sleep 500ms
 Show
 
-Sleep 1s
+Sleep 500ms
 
-Type "echo === AI CLI - Real Installation Demo ==="
+Type "Write-Host '=== AI CLI - Installation Demo ===' -ForegroundColor Cyan"
+Enter
+Sleep 1.5s
+
+# Step 1: Check Python version
+Type "Write-Host '`n[1/4] Checking Python...' -ForegroundColor Yellow"
+Enter
+Sleep 500ms
+
+Type "python --version"
 Enter
 Sleep 2s
 
-# Step 1: Uninstall existing installation
-Type "echo."
-Enter
-Type "echo [1/6] Removing previous ai-cli installation..."
+# Step 2: Install ai-cli with pipx
+Type "Write-Host '`n[2/4] Installing ai-cli...' -ForegroundColor Yellow"
 Enter
 Sleep 500ms
 
-Type "pipx uninstall ai-cli"
+Type "pipx install -e . --force"
 Enter
-Sleep 15s
+Sleep 30s
 
-# Step 2: Fresh install from source (llm is included as dependency)
-Type "echo."
-Enter
-Type "echo [2/6] Installing ai-cli from source..."
-Enter
-Sleep 500ms
-
-Type "pipx install -e ."
-Enter
-Sleep 60s
-
-# Step 3: Inject Groq plugin into ai-cli virtualenv
-Type "echo."
-Enter
-Type "echo [3/6] Adding Groq LLM plugin..."
+# Step 3: Inject Groq plugin
+Type "Write-Host '`n[3/4] Adding Groq LLM plugin...' -ForegroundColor Yellow"
 Enter
 Sleep 500ms
 
 Type "pipx inject ai-cli llm-groq"
 Enter
-Sleep 30s
+Sleep 20s
 
-# Step 4: Load API key from .env file
-Type "echo."
-Enter
-Type "echo [4/6] Loading API key from .env file..."
-Enter
-Sleep 500ms
-
-Type "for /f %a in (.env) do set %a"
-Enter
-Sleep 5s
-
-Type "if defined GROQ_API_KEY echo [OK] GROQ_API_KEY is set"
-Enter
-Sleep 2s
-
-# Step 5: Set default model
-Type "echo."
-Enter
-Type "echo [5/6] Setting default LLM model..."
-Enter
-Sleep 500ms
-
-Type "llm models default groq/moonshotai/kimi-k2-instruct-0905"
-Enter
-Sleep 5s
-
-# Step 6: Verify installation
-Type "echo."
-Enter
-Type "echo [6/6] Verifying installation..."
+# Step 4: Verify installation
+Type "Write-Host '`n[4/4] Verifying installation...' -ForegroundColor Yellow"
 Enter
 Sleep 500ms
 
 Type "ai --version"
 Enter
+Sleep 2s
+
+Type "ai --check"
+Enter
 Sleep 3s
-
-Type "ai --help"
-Enter
-Sleep 5s
-
-# Real LLM test
-Type "echo."
-Enter
-Type "echo === Testing with a real LLM call ==="
-Enter
-Sleep 1s
-
-Type "ai ola mundo"
-Enter
-Sleep 30s
 
 # Done
-Type "echo."
+Type "Write-Host '`n=== Installation Complete! ===' -ForegroundColor Green"
 Enter
-Type "echo === Done - ai-cli installed and working ==="
-Enter
-Sleep 3s
+Sleep 2s
